@@ -1,0 +1,48 @@
+define([
+    'encrypt'
+],
+    function (EncryptJS) {
+        /**
+         * 补齐指定位数
+         * @param bits 格式化位数
+         * @param identifier 补全字符
+         * @param value 值
+         */
+        var dataLeftCompleting = function (bits, identifier, value) {
+            value = Array(bits + 1).join(identifier) + value;
+            return value.slice(-bits);
+        };
+        /**
+         * 数据加密算法
+         * @param data 需加密的数据
+         * @param key 秘钥
+         */
+        var encryptAlg = function (data, key) {
+            var key = EncryptJS.enc.Latin1
+                .parse(dataLeftCompleting(16, " ", key));
+            return EncryptJS.AES.encrypt(data, key, {
+                iv: key,
+                mode: EncryptJS.mode.CBC,
+                padding: EncryptJS.pad.ZeroPadding
+            }).toString();
+        };
+        /**
+         * 数据解密算法
+         * @param data 需解密的数据
+         * @param key 秘钥
+         */
+        var dencrypt = function (data, key) {
+            var key = EncryptJS.enc.Latin1
+                .parse(dataLeftCompleting(16, " ", key));
+            var iv = key;
+            return EncryptJS.AES.decrypt(data, key, {
+                iv: iv,
+                mode: EncryptJS.mode.CBC,
+                padding: EncryptJS.pad.ZeroPadding
+            }).toString(EncryptJS.enc.Utf8);
+        };
+        return {
+            encryptAlg: encryptAlg,
+            dencrypt: dencrypt
+        };
+    });

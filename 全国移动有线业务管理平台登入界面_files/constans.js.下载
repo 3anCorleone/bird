@@ -1,0 +1,1248 @@
+define([
+    'assets/common/cookie'
+], function (Cookie) {
+	var server = 'http://ngwlanfix.online-cmcc.cn:10010';
+    var province = Cookie.get('provinceCode');
+    //获取顶部菜单
+    var getMenu = function (provinceCode) {
+        provinceCode = provinceCode ? provinceCode : province;
+        var userbean = Cookie.get('userbean');
+        var userRole;
+        if(userbean){
+            userRole = JSON.parse(userbean).userRole
+        }
+       
+        if(userRole == 12){
+            return {
+                "menu": {
+                    "view": "管理者视图",
+                    "firstmenu": [
+                        {
+                            "name": "装维管理",
+                            "secondeMenu": [
+                                {
+                                    "name": "装维调度",
+                                    "thirdMenu": [
+                                        {
+                                            "name": "工单管控",
+                                            "icon": "r10116.png",
+                                            "url": "orderquery/orderview"
+                                        }, 
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "name": "工作台",
+                            "secondeMenu": [
+                                {
+                                    "name": "工作管理",
+                                    "thirdMenu": [
+                                        {
+                                            "name": "调度工作台",
+                                            "icon": "r10116.png",
+                                            "url": "worktable/worktable"
+                                        }
+                                    ]
+                                }, 
+                            ]
+                        }, 
+                    ]
+                }
+            }
+        }
+        if(userRole == 13){
+            return {
+                "menu": {
+                    "view": "管理者视图",
+                    "firstmenu": [
+                        {
+                        "name": "物资管理",
+                        "secondeMenu": [
+                        	{
+                                "name": "工作台",
+                                "thirdMenu": [
+                                    {
+                                        "name": "我的定单",
+                                        "icon": "u200014.png",
+                                        "url": "material/matOrderView",
+                                        "param": JSON.stringify({queryType:1, name:'我的定单'})
+                                    },
+                                    {
+                                        "name": "待处理定单",
+                                        "icon": "u200011.png",
+                                        "url": "material/matOrderView",
+                                        "param": JSON.stringify({queryType:2, name:'待处理定单'})
+                                    },
+                                    {
+                                        "name": "定单查询",
+                                        "icon": "u200010.png",
+                                        "url": "material/matOrderView",
+                                        "param": JSON.stringify({queryType:3, name:'定单查询'})
+                                    },
+                                    {
+                                        "name": "创建定单",
+                                        "icon": "u200012.png",
+                                        "url": "material/matOrderCreate"
+                                    },
+                                    {
+                                        "name": "库存查询",
+                                        "icon": "stockQuery.png",
+                                        "url": "material/stockQuery"
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "信息维护",
+                                "thirdMenu": [
+                                    {
+                                        "name": "设备跟踪",
+                                        "icon": "sn_source.png",
+                                        "url": "material/snSource"
+                                    },
+                                    {
+                                        "name": "库存流转",
+                                        "icon": "store_circulation_situation.png",
+                                        "url": "material/stockChangeView"
+                                    }
+                                    ,
+                                    {
+                                        "name": "放装记录",
+                                        "icon": "test_record.png",
+                                        "url": "material/matInstallQuery"
+                                    },
+                                    {
+                                        "name": "关键事件",
+                                        "icon": "equi_prob.png",
+                                        "url": "material/matEvent"
+                                    },
+                                    {
+                                        "name": "仓库管理",
+                                        "icon": "u200015.png",
+                                        "url": "material/warehouse"
+                                    }
+									,
+									{
+										"name": "自定义二维码",
+										"icon": "qrcode.png",
+									    "url": "material/qrcode"
+									}
+                                    ,
+									{
+										"name": "耗材管理",
+										"icon": "consumable.png",
+										"url": "material/consumable"
+                                    }
+                                    ,
+                                    {
+										"name": "模型管理",
+										"icon": "models.png",
+										"url": "material/models"
+									},{
+										"name": "设备归属",
+										"icon": "railcom.png",
+										"url": "material/information/railcom"
+									}
+                                ]
+                            } ,
+                            {
+                                "name": "稽核管理",
+                                "thirdMenu": [
+									{
+										"name": "库存异常申报",
+										"icon": "store_fault_report.png",
+										"url": "material/matErrorLog",
+									}, 
+                                    {
+										"name": "SN修订",
+										"icon": "snRevise.png",
+										"url": "material/snRevise"
+									},                                    
+                                    {
+                                        "name": "库存盘点",
+                                        "icon": "checkUpload.png",
+                                        "url": "material/matCheck"
+                                    },   
+                                ]
+                            },
+                            {
+                                "name": "数据统计",
+                                "thirdMenu": [
+                                    {
+                                        "name": "回收设备查询",
+                                        "icon": "recoveryQuery.png",
+                                        "url": "material/recoveryQuery"
+                                    },
+                                    {                                    
+                                        "name": "回收物资查询",
+                                        "icon": "recoveryMaterialQuery.png",
+                                        "url": "material/recoveryMaterialQuery"
+                                    },
+                                    {                                    
+                                        "name": "待处理统计",
+                                        "icon": "daichuli.png",
+                                        "url": "material/handingOrderCount"
+                                    },
+                                    {                                    
+                                        "name": "SN修订操作查询",
+                                        "icon": "snModifyLog.png",
+                                        "url": "material/statistics/snModifyLog"
+                                    },
+                                    {                                    
+                                        "name": "终端预警查询",
+                                        "icon": "test_record.png",
+                                        "url": "material/statistics/warnLimitInfo"
+                                    },
+                                    {                                    
+                                        "name": "终端故障率",
+                                        "icon": "faultRate.png",
+                                        "url": "material/statistics/faultRate"
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "终端故障率（新）",
+                                "thirdMenu": [
+                                    {                                    
+                                        "name": "终端故障率",
+                                        "icon": "faultRate.png",
+                                        "url": "material/fault/faultRate"
+                                    },
+                                    {                                    
+                                        "name": "设备类型维护",
+                                        "icon": "rp1.png",
+                                        "url": "material/fault/deviceMaintain"
+                                    },
+                                    {                                    
+                                        "name": "设备故障明细",
+                                        "icon": "faultDetail.png",
+                                        "url": "material/fault/faultDetails"
+                                    },
+                                ]
+                            }
+                        ]
+                    },
+                    ]
+                }
+            }
+        }
+        if(userRole == 16) {
+            return {
+                "menu": {
+                    "view": "管理者视图",
+                    "firstmenu": [
+                        {
+                            "name": "装维管理",
+                            "secondeMenu": [
+                                {
+                                    "name": "装维调度",
+                                    "thirdMenu": [
+                                        {
+                                            "name": "工单管控",
+                                            "icon": "r10116.png",
+                                            "url": "orderquery/orderview"
+                                        }, {
+                                            "name": "满意度修复单",
+                                            "icon": "ord_repair.png",
+                                            "url": "offlineComplain/offlineComplain"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "name": "定单导出",
+                                    "thirdMenu": [
+                                        {
+                                            "name": "待处理定单",
+                                            "icon": "daichuli.png",
+                                            "url": "export/handingOrderCount"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }, {
+                            "name": "网格管理",
+                            "secondeMenu": [
+                                {
+                                    "name": "支撑功能",
+                                    "thirdMenu": [
+                                        {
+                                            "name": "综合支撑",
+                                            "icon": "rp1.png",
+                                            "url": "support/comprehensiveSupport"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }, {
+                            "name": "工作台",
+                            "secondeMenu": [
+                                {
+                                    "name": "工作管理",
+                                    "thirdMenu": [
+                                        {
+                                            "name": "调度工作台",
+                                            "icon": "r10116.png",
+                                            "url": "worktable/worktable"
+                                        }
+                                    ]
+                                }, 
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+        return {
+            "menu": {
+                "view": "管理者视图",
+                "firstmenu": [
+                    {
+                        "name": "装维管理",
+                        "secondeMenu": [
+                            {
+                                "name": "装维调度",
+                                "thirdMenu": [
+                                    {
+                                        "name": "工单管控",
+                                        "icon": "r10116.png",
+                                        "url": "orderquery/orderview"
+                                    }, {
+                                        "name": "工单矩阵",
+                                        "icon": "r10005.png",
+                                        "url": "orderquery/ordermatrix"
+                                    }, {
+                                        "name": "录音回听",
+                                        "icon": "r10023.png",
+                                        "url": "orderquery/recordback"
+                                    }, {
+                                        "name": "异常定单处理",
+                                        "icon": "exception_ord.png",
+                                        "url": "orderquery/orderException"
+                                    }, 
+                                    userRole==90 || userRole==14 ?{
+                                        "name": "异常预约/改约处理",
+                                        "icon": "changingException_ord.png",
+                                        "url": "orderquery/orderChangingException"
+                                    }: null, 
+                                    userRole==90 ?{
+                                        "name": "异常收费处理",
+                                        "icon": "exception_charge.png",
+                                        "url": "orderquery/chargeException"
+                                    }: null, 
+                                    userRole==90 || userRole==14 ?{
+                                        "name": "工单时限",
+                                        "icon": "c_ord.png",
+                                        "url": "timeRule/orderTimeRule"
+                                    }:null, 
+                                    {
+                                        "name": "满意度修复单",
+                                        "icon": "ord_repair.png",
+                                        "url": "offlineComplain/offlineComplain"
+                                    },
+                                    userRole==90 || userRole==14 ?{
+                                        "name": "时限更新",
+                                        "icon": "daichuli.png",
+                                        "url": "timeRule/orderTimeChange"
+                                    }:null,
+                                ]
+                            },  userRole==90 || userRole==14 ? {
+                                "name": "装维配置",
+                                "thirdMenu": [
+                                    {
+                                        "name": "派单开关",
+                                        "icon": "autoSkdRules.png",
+                                        "url": "rules/autoSkdRules"
+                                    },
+                                    {
+                                        "name": "上网认证校验开关",
+                                        "icon": "onlineValidateRules.png",
+                                        "url": "rules/onlineValidateRules"
+                                    },
+                                    {
+                                        "name": "IVR改约开关",
+                                        "icon": "ivrValidateRules.png",
+                                        // "url": "rules/ivrValidateRules"
+                                        "url": "rules/ivrModifyRules"
+                                    },
+                                    {
+                                        "name": "IVR预约开关",
+                                        "icon": "appointIvrValidateRules.png",
+                                        "url": "rules/appointIvrValidateRules"
+                                    },
+                                    {
+                                        "name": "IVR预约区县开关",
+                                        "icon": "ivrAppointRules.png",
+                                        "url": "rules/ivrAppointDistrictRules"
+                                    },
+                                    {
+                                        "name": "设备校验",
+                                        "icon": "materialValidateRules.png",
+                                        "url": "rules/materialValidateRules"
+                                    },
+                                    {
+                                        "name": "重要客户开关",
+                                        "icon": "starsValidateRules.png",
+                                        "url": "rules/starsValidateRules"
+                                    },
+                                    {
+                                        "name": "外呼首响开关",
+                                        "icon": "dialOutRules.png",
+                                        "url": "rules/dialOutRules"
+                                    },
+                                    {
+                                        "name": "抢单开关",
+                                        "icon": "orderGrabbing.png",
+                                        "url": "rules/orderGrabbing"
+                                    },
+                                    {
+                                        "name": "测速/光功率校验",
+                                        "icon": "speedTest.png",
+                                        "url": "rules/speedTestRules"
+                                    },
+                                    {
+                                        "name": "智能组网相关配置",
+                                        "icon": "netValidateRules.png",
+                                        "url": "rules/netValidateRules"
+                                    },
+                                    {
+                                        "name": "装维人脸登录开关",
+                                        "icon": "faceLoginRules.png",
+                                        "url": "rules/faceLoginRules"
+                                    },
+                                    {
+                                        "name": "自动报结开关",
+                                        "icon": "aotoReport.png",
+                                        "url": "rules/autoReportRules"
+                                    },
+                                    {
+                                        "name": "报结时限开关",
+                                        "icon": "reportLimit.png",
+                                        "url": "rules/reportTimeRules"
+                                    }
+                                ]
+                            } : null,  
+                            {
+                                "name": "定单导出",
+                                "thirdMenu": [
+                                    {
+                                        "name": "定单导出",
+                                        "icon": "ord_end_exp.png",
+                                        "url": "export/orderExport"
+                                    }
+                                    , {
+                                        "name": "待处理定单",
+                                        "icon": "daichuli.png",
+                                        "url": "export/handingOrderCount"
+                                    }, {
+                                        "name": "离线报表",
+                                        "icon": "offlineOrderCount.png",
+                                        "url": "export/offlineOrderCount"
+                                    }, {
+                                        "name": "网络质量统计导出",
+                                        "icon": "netquality.png",
+                                        "url": "export/NetQualityCount"
+                                    }, {
+                                        "name": "满意度修复单导出",
+                                        "icon": "ord_end_exp.png",
+                                        "url": "export/orderRepairExport"
+                                    }
+                                ]
+                            }, {
+                                "name": "GIS地图",
+                                "thirdMenu": [
+                                    {
+                                        "name": "装维监控",
+                                        "icon": "zw_mo.png",
+                                        "url": "gis/monitoring"
+                                    }, {
+                                        "name": "资源管理",
+                                        "icon": "res_mgr.png",
+                                        "url": "gis/resourceManage"
+                                    }, {
+                                        "name": "盲点管理",
+                                        "icon": "blindspot.png",
+                                        "url": "gis/blindness"
+                                    }
+                                ]
+                            }
+                        ]
+                    }, {
+                        "name": "网格管理",
+                        "secondeMenu": [
+                            {
+                                "name": "装维网格",
+                                "thirdMenu": [
+                                    {
+                                        "name": "装维班组",
+                                        "icon": "u26.png",
+                                        "url": "mtnManage/mtnGroup"
+                                    }, {
+                                        "name": "装维人员",
+                                        "icon": "u26.png",
+                                        "url": "mtnManage/mtnUser"
+                                    }, {
+                                        "name": "装维小区",
+                                        "icon": "u26.png",
+                                        "url": "mtnManage/mtnDistrict"
+                                    }, {
+                                        "name": "装维网格",
+                                        "icon": "u26.png",
+                                        "url": "mtnManage/mtnGrid"
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "支撑功能",
+                                "thirdMenu": [
+                                    {
+                                        "name": "综合支撑",
+                                        "icon": "rp1.png",
+                                        "url": "support/comprehensiveSupport"
+                                    }, 
+                                    userRole==90 || userRole==14 ? {
+                                        "name": "工单维护",
+                                        "icon": "orderMaintenance.png",
+                                        "url": "supplementary/orderMaintenance"
+                                    }:null,
+                                    userRole==90 || userRole==14 ? {
+                                        "name": "组网设备维护",
+                                        "icon": "networkingMaintenance.png",
+                                        "url": "supplementary/networkingMaintenance"
+                                    }:null,
+                                    {
+                                        "name": "敏感操作查询",
+                                        "icon": "comPreLogList.png",
+                                        "url": "supplementary/comPreLogList"
+                                    },
+                                    userRole==90 || userRole==14 ? {
+                                        "name": "催装督办人员管理",
+                                        "icon": "urgeUsers.png",
+                                        "url": "rules/urgeUsers"
+                                    }:null,
+                                    userRole==90 || userRole==14 ? {
+                                        "name": "接单管理人员",
+                                        "icon": "orderTaker.png",
+                                        "url": "rules/orderTaker"
+                                    }:null,
+                                    userRole==90 ? {
+                                        "name": "组网单解绑",
+                                        "icon": "net_unlink.png",
+                                        "url": "supplementary/netUnbinding"
+                                    }:null,
+                                    userRole==90 ? {
+                                        "name": "工单作废",
+                                        "icon": "order_void.png",
+                                        "url": "supplementary/orderVoid"
+                                    }:null,
+                                ]
+                            }
+                        ]
+                    }, {
+                        "name": "工单统计",
+                        "secondeMenu": [
+                            {
+                                "name": "竣工统计",
+                                "thirdMenu": [
+                                    {
+                                        "name": "装机竣工",
+                                        "icon": "r10009.png",
+                                        "url": "statistics/install"
+                                    }
+                                ]
+                            }, {
+                                "name": "满意度统计",
+                                "thirdMenu": [
+                                    {
+                                        "name": "装维满意度",
+                                        "icon": "r10013.png",
+                                        "url": "statistics/satisfy"
+                                    }
+                                ]
+                            }, {
+                                "name": "及时率统计",
+                                "thirdMenu": [
+                                    {
+                                        "name": "首响及时率",
+                                        "icon": "r10004.png",
+                                        "url": "statistics/respOntime"
+                                    }
+                                ]
+                            }, {
+                                "name": "综合统计",
+                                "thirdMenu": [
+                                    {
+                                        "name": "投诉维护情况",
+                                        "icon": "r10116.png",
+                                        "url": "statistics/maintain"
+                                    },
+                                    {
+                                        "name": "工单耗材统计",
+                                        "icon": "hcxx.png",
+                                        "url": "statistics/consume"
+                                    },
+                                    {
+                                        "name": "工作量统计",
+                                        "icon": "workload.png",
+                                        "url": "statistics/workload"
+                                    },
+                                    {
+                                        "name": "抢单统计",
+                                        "icon": "grabTotal.png",
+                                        "url": "statistics/grabTotal"
+                                    },
+                                    {
+                                        "name": "工单耗材详情",
+                                        "icon": "consumeInfo.png",
+                                        "url": "statistics/consumeInfo"
+                                    }
+                                ]
+                            }
+                        ]
+                    }, 
+						{
+                        "name": "物资管理",
+                        "secondeMenu": [
+                        	{
+                                "name": "工作台",
+                                "thirdMenu": [
+                                    {
+                                        "name": "我的定单",
+                                        "icon": "u200014.png",
+                                        "url": "material/matOrderView",
+                                        "param": JSON.stringify({queryType:1, name:'我的定单'})
+                                    },
+                                    {
+                                        "name": "待处理定单",
+                                        "icon": "u200011.png",
+                                        "url": "material/matOrderView",
+                                        "param": JSON.stringify({queryType:2, name:'待处理定单'})
+                                    },
+                                    {
+                                        "name": "定单查询",
+                                        "icon": "u200010.png",
+                                        "url": "material/matOrderView",
+                                        "param": JSON.stringify({queryType:3, name:'定单查询'})
+                                    },
+                                    {
+                                        "name": "创建定单",
+                                        "icon": "u200012.png",
+                                        "url": "material/matOrderCreate"
+                                    },
+                                    {
+                                        "name": "库存查询",
+                                        "icon": "stockQuery.png",
+                                        "url": "material/stockQuery"
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "信息维护",
+                                "thirdMenu": [
+                                    {
+                                        "name": "设备跟踪",
+                                        "icon": "sn_source.png",
+                                        "url": "material/snSource"
+                                    },
+                                    {
+                                        "name": "库存流转",
+                                        "icon": "store_circulation_situation.png",
+                                        "url": "material/stockChangeView"
+                                    },
+                                    {
+                                        "name": "放装记录",
+                                        "icon": "test_record.png",
+                                        "url": "material/matInstallQuery"
+                                    },
+                                    userRole==90 || userRole==14 ?{
+                                        "name": "物资管理",
+                                        "icon": "u200013.png",
+                                        "url": "material/matMaterial"
+                                    }:null,
+                                    {
+                                        "name": "关键事件",
+                                        "icon": "equi_prob.png",
+                                        "url": "material/matEvent"
+                                    },
+                                    userRole!=10 ?{
+                                        "name": "仓库管理",
+                                        "icon": "u200015.png",
+                                        "url": "material/warehouse"
+                                    }:null,
+									{
+										"name": "自定义二维码",
+										"icon": "qrcode.png",
+									    "url": "material/qrcode"
+									},
+									{
+										"name": "耗材管理",
+										"icon": "consumable.png",
+										"url": "material/consumable"
+									},
+                                    userRole==90 || userRole==14 ?{
+										"name": "预警设置",
+										"icon": "r10009.png",
+										"url": "material/warnLimit"
+                                    }: null,
+                                    userRole==90 || userRole==14 ?{
+										"name": "厂商管理",
+										"icon": "vendor.png",
+										"url": "material/vendor"
+                                    }:null,
+                                    {
+										"name": "模型管理",
+										"icon": "models.png",
+										"url": "material/models"
+									},{
+										"name": "设备归属",
+										"icon": "railcom.png",
+										"url": "material/information/railcom"
+									}
+                                ]
+                            },
+                            userRole==90 || userRole==14 ? {
+                                "name": "物资配置",
+                                "thirdMenu": [
+                                    {
+                                        "name": "线下建单管理",
+                                        "icon": "offOrder.png",
+                                        "url": "material/offOrderConfig"
+                                    }
+                                ]
+                            } : null,
+                            {
+                                "name": "稽核管理",
+                                "thirdMenu": [
+									{
+										"name": "库存异常申报",
+										"icon": "store_fault_report.png",
+										"url": "material/matErrorLog",
+									},
+                                    userRole!=10 ? {
+										"name": "SN修订",
+										"icon": "snRevise.png",
+										"url": "material/snRevise"
+									}:null,
+                                    userRole==90 || userRole==14 ?{
+										"name": "智能出库",
+										"icon": "smartUseTerminal.png",
+										"url": "material/smartUseTerminal"
+                                    }:null,
+                                    userRole==14?{
+                                        "name": "设备清查",
+                                        "icon": "cangku.png",
+                                        "url": "material/matDeleteBySN"
+                                    }:null,
+                                    {
+                                        "name": "库存盘点",
+                                        "icon": "checkUpload.png",
+                                        "url": "material/matCheck"
+                                    },
+                                ]
+                            },
+                            {
+                                "name": "数据统计",
+                                "thirdMenu": [
+                                    {
+                                        "name": "回收设备查询",
+                                        "icon": "recoveryQuery.png",
+                                        "url": "material/recoveryQuery"
+                                    },
+                                    {                                    
+                                        "name": "回收物资查询",
+                                        "icon": "recoveryMaterialQuery.png",
+                                        "url": "material/recoveryMaterialQuery"
+                                    },
+                                    {                                    
+                                        "name": "待处理统计",
+                                        "icon": "daichuli.png",
+                                        "url": "material/handingOrderCount"
+                                    },
+                                    {                                    
+                                        "name": "SN修订操作查询",
+                                        "icon": "snModifyLog.png",
+                                        "url": "material/statistics/snModifyLog"
+                                    },
+                                    {                                    
+                                        "name": "终端预警查询",
+                                        "icon": "grabTotal.png",
+                                        "url": "material/statistics/warnLimitInfo"
+                                    },
+                                    {                                    
+                                        "name": "终端故障率",
+                                        "icon": "faultRate.png",
+                                        "url": "material/statistics/faultRate"
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "终端故障率（新）",
+                                "thirdMenu": [
+                                    {                                    
+                                        "name": "终端故障率",
+                                        "icon": "faultRate.png",
+                                        "url": "material/fault/faultRate"
+                                    },
+                                    {                                    
+                                        "name": "设备类型维护",
+                                        "icon": "rp1.png",
+                                        "url": "material/fault/deviceMaintain"
+                                    },
+                                    {                                    
+                                        "name": "设备故障明细",
+                                        "icon": "faultDetail.png",
+                                        "url": "material/fault/faultDetails"
+                                    },
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "工作台",
+                        "secondeMenu": [
+                            {
+                                "name": "工作管理",
+                                "thirdMenu": [
+                                    {
+                                        "name": "调度工作台",
+                                        "icon": "r10116.png",
+                                        "url": "worktable/worktable"
+                                    }
+                                ]
+                            }, 
+                        ]
+                    }, 
+                    {
+                        "name": "更多>>",
+                        "secondeMenu": [
+                            {
+                                "name": "个人中心",
+                                "thirdMenu": [
+                                    {
+                                        "name": "个人中心",
+                                        "icon": "c_ord.png",
+                                        "url": "more/myMessage"
+                                    }
+                                ]
+                            },{
+                                "name": "星级评定",
+                                "thirdMenu": [
+                                    {
+                                        "name": "星级评定表",
+                                        "icon": "r10013.png",
+                                        "url": "starEvaluation/evaluation"
+                                    },
+                                    userRole==90 || userRole==14 ?{
+                                        "name": "指标调整",
+                                        "icon": "r10004.png",
+                                        "url": "starEvaluation/target"
+                                    }:null,
+                                    userRole==90 || userRole==14 ?{
+                                        "name": "参数调整",
+                                        "icon": "r10004.png",
+                                        "url": "starEvaluation/parameter"
+                                    }:null
+                                ]
+                            },
+                            userRole==90 || userRole==14 ?{
+                                "name": "安全管理",
+                                "thirdMenu": [
+                                    {
+                                        "name": "用户管理",
+                                        "icon": "c_ord.png",
+                                        "url": "more/userManage"
+                                    }
+                                ]
+                            }:null,
+                            userRole==90 || userRole==14 ?{
+                                "name": "系统公告",
+                                "thirdMenu": [
+                                    {
+                                        "name": "系统公告管理",
+                                        "icon": "sys_notice.png",
+                                        "url": "more/sysNotice"
+                                    }
+                                ]
+                            }:null
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+
+    //获取工单管控查询条件
+    var getOrderQuery = function(provinceCode){
+        provinceCode = provinceCode ? provinceCode : province;
+        return {
+            "query": [
+                {
+                    "name": "orderTime",
+                    "title": "派单时间",
+                    "content": [
+                        "当天定单",
+                        "最近一周定单",
+                        "最近一个月定单",
+                        "最近三个月定单",
+                        "自定义时间"
+                    ],
+                    "add": false,
+                    "defaultSelecteIndex": "0",
+                    "defaultValue": "当天定单"
+                }, {
+                    "name": "finalApptTime",
+                    "title": "预约时间",
+                    "content": [
+                        "当天预约",
+                        "最近一周预约",
+                        "最近一个月预约",
+                        "最近三个月预约",
+                        "自定义时间"
+                    ],
+                    "add": false,
+                }, {
+                    "name": "orderTypeList",
+                    "title": "定单类型",
+                    "content": [
+                        {
+                            "label": "EOMS装机定单",
+                            "value": 1
+                        }, {
+                            "label": "EOMS投诉定单",
+                            "value": 3
+                        }, {
+                            "label": "驻地网定单",
+                            "value": 6
+                        }, {
+                            "label": "满意度修复单",
+                            "value": 7
+                        }, {
+                            "label": "全路由定单",
+                            "value": 10
+                        }, {
+                            "label": "装维组网定单",
+                            "value": 11
+                        }, {
+                            "label": "PBOSS组网定单",
+                            "value": 12
+                        },{
+                            "label": "安防单",
+                            "value": 13
+                        },{
+                            "label": "挂测单",
+                            "value": 14
+                        }, {
+                            "label": "任务单",
+                            "value": 15
+                        }
+                    ],
+                    "add": true
+                }, {
+                    "name": "stateIdList",
+                    "title": "定单状态",
+                    "content": [
+                        {
+                            "label": "待派发集中预约",
+                            "value": 90
+                        }, {
+                            "label": "待首次集中预约",
+                            "value": 91
+                        }, {
+                            "label": "待二次集中预约",
+                            "value": 92
+                        }, {
+                            "label": "集中预约已退单",
+                            "value": 93
+                        }, {
+                            "label": "待配置派发",
+                            "value": 1
+                        }, {
+                            "label": "待抢单",
+                            "value": 31
+                        }, {
+                            "label": "已配置派发",
+                            "value": 2
+                        }, {
+                            "label": "撤单完成",
+                            "value": 3
+                        }, {
+                            "label": "退单完成",
+                            "value": 4
+                        }, {
+                            "label": "待挂起",
+                            "value": 6
+                        }, {
+                            "label": "待上门",
+                            "value": 7
+                        }, {
+                            "label": "待退单",
+                            "value": 8
+                        }, {
+                            "label": "待改派",
+                            "value": 9
+                        }, {
+                            "label": "已挂起",
+                            "value": 10
+                        }, {
+                            "label": "CRM创建定单",
+                            "value": 17
+                        }, {
+                            "label": "派单",
+                            "value": 18
+                        }, {
+                            "label": "待报结",
+                            "value": 19
+                        }, {
+                            "label": "已报结",
+                            "value": 20
+                        }, {
+                            "label": "已退EOMS",
+                            "value": 21
+                        }, {
+                            "label": "待质检",
+                            "value": 22
+                        }, {
+                            "label": "待激活",
+                            "value": 23
+                        }, {
+                            "label": "待干预",
+                            "value": 24
+                        }, {
+                            "label": "待提交",
+                            "value": 25
+                        }, {
+                            "label": "待审核",
+                            "value": 26
+                        }, {
+                            "label": "处理中",
+                            "value": 27
+                        }, {
+                            "label": "待取消",
+                            "value": 28
+                        }, {
+                            "label": "已取消",
+                            "value": 29
+                        }, {
+                            "label": "已作废",
+                            "value": 30
+                        }
+                    ],
+                    "add": true
+                }, {
+                    "name": "actTypeList",
+                    "title": "动作类型",
+                    "content": [
+                        {
+                            "label": "开通",
+                            "value": "开通"
+                        }, {
+                            "label": "撤销",
+                            "value": "撤销"
+                        }, {
+                            "label": "变更",
+                            "value": "变更"
+                        }, {
+                            "label": "投诉",
+                            "value": "投诉"
+                        }, {
+                            "label": "抢修",
+                            "value": "抢修"
+                        }, {
+                            "label": "智能组网",
+                            "value": "智能组网"
+                        }, {
+                            "label": "家庭硬件安装",
+                            "value": "家庭硬件安装"
+                        }, {
+                            "label": "满意度修复",
+                            "value": "满意度修复"
+                        }
+                    ],
+                    "add": true
+                }, {
+                    "name": "serviceTypeList",
+                    "title": "业务类型",
+                    "content": [
+                        "新开语音",
+                        "新开宽带",
+                        "新开IPTV",
+                        "更换ONU",
+                        "移机",
+                        "停闭语音",
+                        "停闭宽带",
+                        "停闭IPTV",
+                        provinceCode=='TJ'?"割接工单":"",
+                        "全路由",
+                        "调整宽带",
+                        "家庭硬件安装",
+                        "新装FTTR",
+                        "加装从设备",
+                        "调整宽带+FTTR"
+                    ],
+                    "add": true
+                }, {
+                    "name": "accessModeList",
+                    "title": "接入方式",
+                    "content": [
+                        "FTTH",
+                        "FTTB",
+                        "FTTO"
+                    ],
+                    "add": true
+                }, {
+                    "name": "isKeyCustList",
+                    "title": "重要客户",
+                    "content": [
+                        {
+                            "label": "是",
+                            "value": "1"
+                        }, {
+                            "label": "否",
+                            "value": "0"
+                        }
+                    ],
+                    "add": false
+                }, {
+                    "name": "durationType",
+                    "title": "工单历时",
+                    "content": [
+                        {
+                            "label": "24小时以内",
+                            "value": "0"
+                        }, {
+                            "label": "24-36小时",
+                            "value": "1"
+                        }, {
+                            "label": "36-48小时",
+                            "value": "2"
+                        }, {
+                            "label": "48小时以上",
+                            "value": "3"
+                        }
+                    ],
+                    "add": false
+                }, {
+                    "name": "sortType",
+                    "title": "字段排序",
+                    "content": [
+                        {
+                            "label": "剩余时间(升)",
+                            "value": "0"
+                        }, {
+                            "label": "剩余时间(降)",
+                            "value": "1"
+                        }, {
+                            "label": "派单时间(升)",
+                            "value": "2"
+                        }, {
+                            "label": "派单时间(降)",
+                            "value": "3"
+                        }, {
+                            "label": "操作时间(升)",
+                            "value": "4"
+                        }, {
+                            "label": "操作时间(降)",
+                            "value": "5"
+                        }, {
+                            "label": "预约上门时间(升)",
+                            "value": "6"
+                        }, {
+                            "label": "预约上门时间(降)",
+                            "value": "7"
+                        }
+                    ],
+                    "add": false
+                }, {
+                    "name": "warnClass",
+                    "title": "超时类型",
+                    "content": [
+                        {
+                            "label": "正常",
+                            "value": "1"
+                        }, {
+                            "label": "即将超时",
+                            "value": "2"
+                        }, {
+                            "label": "已经超时",
+                            "value": "3"
+                        }
+                    ],
+                    "add": false
+                }, {
+                    "name": "todoState",
+                    "title": "组合查询",
+                    "content": [
+                        {
+                            "label": "待处理定单",
+                            "value": "todo"
+                        }, {
+                            "label": "未阅",
+                            "value": "0"
+                        }, {
+                            "label": "已阅",
+                            "value": "1"
+                        } 
+                    ],
+                    "compose": true,
+                    // "defaultSelecteIndex": "0",
+                    // "defaultValue": "todo,"
+                },{
+                    "name": "firstSoundType",
+                    "title": "首响类型",
+                    "content": [
+                        {
+                            "label": "未首响",
+                            "value": "0"
+                        }, {
+                            "label": "首响超时",
+                            "value": "1"
+                        }
+                    ],
+                    "add": false
+                },{
+                    "name": "isGigabit",
+                    "title": "千兆用户",
+                    "content": [
+                        {
+                            "label": "是",
+                            "value": "1"
+                        }, {
+                            "label": "否",
+                            "value": "0"
+                        }
+                    ],
+                    "add": false
+                },{
+                    "name": "firstRegressCodes",
+                    "title": "退单原因",
+                    "content": [
+                        {
+                            "label": "网络",
+                            "value": "1"
+                        }, {
+                            "label": "建设",
+                            "value": "2"
+                        }, {
+                            "label": "用户",
+                            "value": "3"
+                        }, {
+                            "label": "前台",
+                            "value": "4"
+                        }, {
+                            "label": "其他",
+                            "value": "5"
+                        }
+                    ],
+                    "add": true
+                },
+            ],
+            "maxMouth": 6
+        }
+    }
+    return {
+        server: server,
+        // internetUrl:internetUrl,
+        province: province,
+        getMenu: getMenu,
+        getOrderQuery:getOrderQuery
+    };
+});

@@ -1,0 +1,222 @@
+
+define([
+    'Util',
+    'assets/common/routes',
+    'assets/common/cookie',
+    'text!tpl/frame/topMenuOne.tpl',
+    'text!tpl/frame/topMenuTwo.tpl',
+    'text!tpl/frame/topMenuThr.tpl',
+    '../api/user',
+    '../api/utils',
+    '../api/constans',
+    'lib/requirejs/css.min!assets/css/frame.css'
+],
+    function (Util, Routes, Cookie, menuTplOne, menuTplTwo, menuTplThr, userAPI, myUtils, constans) {
+        // var userBean = JSON.parse(myUtils.dencrypt(Cookie.get('userbean'),'zznode'));
+        var userBean = JSON.parse(Cookie.get('userbean'));
+    //  console.log(userBean);
+        var username = userBean && userBean.userName;
+        var userRole;
+        if(userBean){
+            userRole = userBean.userRole;
+        }
+        var meuRotes = null,
+            _index = null;
+        var token = userBean && myUtils.dencrypt(userBean.token,'zznode').replace(/"/g,'');
+        $(document).ajaxSend(function (e, xhr, opt) {
+            xhr.setRequestHeader('X-Auth-Token', token)
+        })
+        //初始化 initIndex 之前，先进行了 systemUserInfoInit
+        var initIndex = function () {
+            var isLogged = userBean && userBean.token;
+            if(!isLogged) {
+                window.location.href = 'index.html';
+                return
+            }
+            //内容选项卡区域
+            _index = {
+                main: meuRotes
+            };
+            //内容区域初始化
+            //省端客服适用
+            // main = new Main({ el:'#chatWarpContainer', _index:_index });
+            // 单页面适用route
+            if(userRole == 13){
+                meuRotes = new Routes({
+                    el: $('#contents'),
+                    homeUrl: 'js/orderquery/orderview',
+                    errorUrl: 'js/error/error',
+                    param: _index
+                });
+                setTimeout(function(){
+                   meuRotes.createTab({ url: "js/material/matOrderView", param: {"queryType":1,"name":"我的定单"} });
+                },200);
+            }else{
+                meuRotes = new Routes({
+                    el: $('#contents'),
+                    homeUrl: 'js/orderquery/orderview',
+                    errorUrl: 'js/error/error',
+                    param: _index
+                });
+                //新标签需要提取之前选择的数据
+                var orderNewPage = Cookie.get('orderNewPage');
+                if(orderNewPage){
+                    $('#refresh').val('true');
+                    var _data_url = Cookie.get('_data_url');
+                    var _param = Cookie.get('_param');
+                //  console.log(orderNewPage);
+                //  console.log(meuRotes);
+                    setTimeout(function(){
+                        meuRotes.createTab({ url: "js/orderquery/orderoperation", param: JSON.parse(_param) });
+                    },200);
+                }
+            }
+                            
+                var $menu = $('#top_menu');
+                //加载顶部菜单
+                // Util.ajax.getJson('data/menu.json', {}, function (json) {
+                var json = constans.getMenu(userBean && userBean.provinceCode);
+                json.username = username;
+                //加载初始顶部菜单
+                $menu.html(Util.hdb.compile(menuTplOne)(json));
+                //第一层菜单添加点击事件
+                var index;
+                var indexFlag = 0;
+                var menuTwo = json.menu.firstmenu[0];
+                $('.menuOne').on('click', function () {
+                    $('.menuOne').removeClass('access');
+                    index = $(this).addClass('access').attr('index');
+                    menuTwo = json.menu.firstmenu[index];
+                //  console.log(menuTwo);
+                    $menu.find('.second_menu').html(Util.hdb.compile(menuTplTwo)(menuTwo));
+                    $('.menuTwo').eq(0).mouseover();
+                    $('.third_menu .menu_u3 a').eq(0).click();
+                })
+                $('.logout').on('click', function () {
+                    userAPI.logout(username);
+                })
+                //第二层菜单添加鼠标移动事件
+                $('.second_menu').on('mouseover', '.menuTwo', function () {
+                    var oldseletedIndex = $('.second_menu .activeColor').attr('index');
+                    // oldseleted.addClass('selected');
+                    $('.menuTwo').removeClass('active');
+                    index = $(this).addClass('active').attr('index');
+                    var menuThr = menuTwo.secondeMenu[index];
+                    $menu.find('.third_menu').html(Util.hdb.compile(menuTplThr)(menuThr));
+                    if ($(this).attr('index') == oldseletedIndex) {
+                        $('.third_menu .menu_u3 a').eq(indexFlag).addClass('selected');
+                    }
+                })
+                //第三层菜单点击事件以及页面上所有的点击事件
+                $('body').on('click', 'a', function () {
+                    if ($(this).attr('data-url')) {
+                        if ($(this).attr('index')) {
+                            $('.third_menu .menu_u3 a').removeClass('selected');
+                            $('.menuTwo').removeClass('activeColor');
+                            //$('.menuTwo').eq(index).addClass('activeColor');
+                            $('.second_menu').find(".active").addClass('activeColor');
+                            indexFlag = $(this).addClass('selected').attr('index');
+                        }
+                        //点击按钮跳转新标签页start
+                        var param = $(this).attr('param');
+                        var appointMent = $(this).parent().parent().attr('appointMent')
+                        var _param;
+                        if (param) {
+                            _param = JSON.parse(param);
+                            _param.appointMent = appointMent;
+                        }
+                        var html =  $(this).html();
+                        if(checkHtml(html)){
+                            var html_operationName = $(html).val().split("(")[0];
+                        }else{
+                            var html_operationName = $(this).html().split("(")[0];
+                        }
+                        var arr_operationName = ["指派","转派","解挂","挂起","改派","催单","查看","预约","调度","退单","报结","退EOMS","处理"];
+                        //判断预约中状态的定单
+                        if (appointMent=="预约中") {
+                            if(html_operationName != "查看" && menuTwo.name == "装维管理"){
+                                myUtils.propMessage("定单预约中，不能进行此操作", true);
+                                return false;
+                            }
+                        }
+                        //此组网单不能转派和改派操作
+                        if (_param && _param.isNetOrderFttr=="1") {
+                            if(html_operationName == "改派"){
+                                myUtils.propMessage("此组网单，不能进行改派操作", true);
+                                return false;
+                            }
+                        }
+                        //装机单退单审核角色优化
+                        if (_param && _param.orderType=="1" && _param.orderState=="待退单" && _param.isRegressAudit=="0" && html_operationName == "退单" ) {
+                            myUtils.propMessage("无权限操作退单", true);
+                            return false;
+                        }                         
+                        if(arr_operationName.indexOf(html_operationName)> -1 && (menuTwo.name == "装维管理"||menuTwo.name == "工作台")){
+                            Cookie.set('_data_url', $(this).attr('data-url'));
+                            Cookie.set('_param', JSON.stringify(_param));
+                            Cookie.set('orderNewPage', true, [0.1]);
+                            window.open(window.location.href, "_blank"); 
+                        }else{
+                            meuRotes.createTab({ url: $(this).attr('data-url'), param: _param });
+                        }
+                        //点击按钮跳转新标签页end
+                    }
+                });
+            // 查询展示系统公告
+            myUtils.getSysNotices();
+            setInterval(function() {
+                myUtils.getSysNotices();
+            }, 5*60*1000);
+            //左侧菜单点击事件
+            // $('.nav').on('click', 'a', function (e) {
+            //     var $src = $(e.currentTarget);
+            //     if ($src.attr('data-url')) {
+            //         meuRotes.createTab({ url: $src.attr('data-url') });
+            //     }
+
+            // });   
+        };
+
+        //监听地址栏变化
+        $(window).bind('hashchange', $.proxy(function () {
+            var $item = $('a[data-url="' + window.location.hash.slice(1) + '"]');
+            //解析url
+            if ($item.length == 0) {
+                var url = Base64.decode(window.location.hash.slice(1));
+                var obj = {};
+                $.each(url.split('&'), function (key, val) {
+                    var arr = val.split('=');
+                    if ((arr[0] == 'url') && arr[1]) {
+                        obj[arr[0]] = arr[1]
+                    } else {
+                        arr[1] && (obj.param || (obj.param = {}), obj.param[arr[0]] = arr[1]);
+                    }
+                });
+                return obj;
+            };
+
+        }, this));
+
+        $(function () {
+            initIndex();
+            document.onkeydown = function (e) {
+                e = e || window.event;
+                if (e.keyCode === 116) {
+                    e.keyCode = 0;
+                    // alert('This action is not allowed');
+                    if (e.preventDefault) e.preventDefault();
+                    else e.returnValue = false;
+                    return false;
+                }
+            }
+        });
+
+        /**
+         * 字符串是否含有html标签的检测
+         * @param htmlStr
+         */
+        function checkHtml(htmlStr) {
+            var  reg = /<[^>]+>/g;
+            return reg.test(htmlStr);
+        }
+    });

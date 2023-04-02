@@ -1,0 +1,614 @@
+
+define('lib/requirejs/css.min!components/validator/validator',[],function(){});
+/**
+ * Created by zhanglizhao on 2016/3/9.
+ */
+define('validator',['jquery', 'eventTarget', 'lib/requirejs/css.min!components/validator/validator.css'],
+	function ($, EventTarget) {
+		var VERSION = '1.16.0';
+		var tools = {
+			isArray: function (arr) {
+				return Object.prototype.toString.apply(arr) === "[object Array]";
+			},
+			isObject: function (arr) {
+				return Object.prototype.toString.apply(arr) === "[object Object]";
+			},
+			isFunction: function (arr) {
+				return Object.prototype.toString.apply(arr) === "[object Function]";
+			}
+		};
+
+		var SnRegExp = {
+			decmal: "^([+-]?)\\d*\\.\\d+$", //浮点数
+			decmal1: "^[1-9]\\d*.\\d*|0.\\d*[1-9]\\d*$", //正浮点数
+			decmal2: "^-([1-9]\\d*.\\d*|0.\\d*[1-9]\\d*)$", //负浮点数
+			decmal3: "^-?([1-9]\\d*.\\d*|0.\\d*[1-9]\\d*|0?.0+|0)$", //浮点数
+			decmal4: "^[1-9]\\d*.\\d*|0.\\d*[1-9]\\d*|0?.0+|0$", //非负浮点数（正浮点数 + 0）
+			decmal5: "^(-([1-9]\\d*.\\d*|0.\\d*[1-9]\\d*))|0?.0+|0$", //非正浮点数（负浮点数 + 0）
+			intege: "^-?[1-9]\\d*$", //整数
+			intege1: "^[1-9]\\d*$", //正整数
+			intege2: "^-[1-9]\\d*$", //负整数
+			num: "^([+-]?)\\d*\\.?\\d+$", //数字
+			num1: "^[1-9]\\d*|0$", //正数（正整数 + 0）
+			num2: "^-[1-9]\\d*|0$", //负数（负整数 + 0）
+			ascii: "^[\\x00-\\xFF]+$", //仅ACSII字符
+			chinese: "^[\\u4e00-\\u9fa5]+$", //仅中文
+			color: "^[a-fA-F0-9]{6}$", //颜色
+			date: "^\\d{4}(\\-|\\/|\\.)\\d{1,2}\\1\\d{1,2}$", //日期
+			time: "^(([0-1]?[0-9])|([2][0-3])):([0-5]?[0-9])(:([0-5]?[0-9]))?$", //时间
+			email: "^\\w+((-\\w+)|(\\.\\w+))*\\@[A-Za-z0-9]+((\\.|-)[A-Za-z0-9]+)*\\.[A-Za-z0-9]+$", //邮件
+			// idcard: "^(^\\d{15}$|^\\d{18}$|^\\d{17}(\\d|X|x))$", //身份证
+			idcard: "^[1-9]\\d{5}(18|19|([23]\\d))\\d{2}((0[1-9])|(10|11|12))(([0-2][1-9])|10|20|30|31)\\d{3}[0-9Xx]$", //身份证
+			ip4: "^(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)\\.(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)$", //ip地址
+			letter: "^[A-Za-z]+$", //字母
+			letter_l: "^[a-z]+$", //小写字母
+			letter_u: "^[A-Z]+$", //大写字母
+			phoneHK: "^([\+]?)(852)?(([-_－—\\s]?)\\d{4})(([-_－—\\s]?)\\d{4})$", //香港电话
+			mobile: "^0?(13|15|17|18|14|19|16)[0-9]{9}$", //手机
+			notempty: "^\\S+$", //非空
+			password: "^.*[A-Za-z0-9\\w_-]+.*$", //密码
+			fullNumber: "^[0-9]+$", //数字
+			picture: "(.*)\\.(jpg|bmp|gif|ico|pcx|jpeg|tif|png|raw|tga)$", //图片
+			qq: "^[1-9]*[1-9][0-9]*$", //QQ号码
+			rar: "(.*)\\.(rar|zip|7zip|tgz)$", //压缩文件
+			tel: "^[0-9\\-()（）]{7,18}$", //电话号码的函数(包括验证国内区号,国际区号,分机号)
+			url: "^http[s]?:\\/\\/([\\w-]+\\.)+[\\w-]+([\\w-./?%&=]*)?$", //url
+			username: "^[A-Za-z0-9_\\-\\u4e00-\\u9fa5]+$", //户名
+			deptname: "^[A-Za-z0-9_()（）\\-\\u4e00-\\u9fa5]+$", //单位名
+			zipcode: "^\\d{6}$", //邮编
+			realname: "^[A-Za-z\\u4e00-\\u9fa5]+$", // 真实姓名
+			companyname: "^[A-Za-z0-9_()（）\\-\\u4e00-\\u9fa5]+$",
+			companyaddr: "^[A-Za-z0-9_()（）\\#\\-\\u4e00-\\u9fa5]+$",
+			companysite: "^http[s]?:\\/\\/([\\w-]+\\.)+[\\w-]+([\\w-./?%&#=]*)?$",
+			xss:"(<(no)?script[^>]*>.*?</(no)?script>)|(eval\\((.*?)\\))|(expression\\((.*?)\\))|((javascript:|vbscript:|view-source:))|(<(\"[^\"]*\"|\'[^\']*\'|[^\'\">])*>)|((window\\.location|window\\.|\\.location|document\\.cookie|document\\.|alert\\(.*?\\)|window\\.open\\())|(<+\\s*\\w*\\s*(oncontrolselect|oncopy|oncut|ondataavailable|ondatasetchanged|ondatasetcomplete|ondblclick|ondeactivate|ondrag|ondragend|ondragenter|ondragleave|ondragover|ondragstart|ondrop|onerror=|onerroupdate|onfilterchange|onfinish|onfocus|onfocusin|onfocusout|onhelp|onkeydown|onkeypress|onkeyup|onlayoutcomplete|onload|onlosecapture|onmousedown|onmouseenter|onmouseleave|onmousemove|onmousout|onmouseover|onmouseup|onmousewheel|onmove|onmoveend|onmovestart|onabort|onactivate|onafterprint|onafterupdate|onbefore|onbeforeactivate|onbeforecopy|onbeforecut|onbeforedeactivate|onbeforeeditocus|onbeforepaste|onbeforeprint|onbeforeunload|onbeforeupdate|onblur|onbounce|oncellchange|onchange|onclick|oncontextmenu|onpaste|onpropertychange|onreadystatechange|onreset|onresize|onresizend|onresizestart|onrowenter|onrowexit|onrowsdelete|onrowsinserted|onscroll|onselect|onselectionchange|onselectstart|onstart|onstop|onsubmit|onunload)+\\s*=+)|(?:--)|(/\\*(?:.|[\\n\\r])*?\\*/)|(\\b(select|update|and|or|delete|insert|trancate|char|into|substr|ascii|declare|exec|into|drop)\\b)"
+		};
+
+		var getDefaultMsg = function (lang) {
+			var defaultMsg = {};
+			switch (lang) {
+				case "en_US":
+					defaultMsg = {
+						defaulterrormsg: 'Fail verification',
+						required: 'The required',
+						mobile: 'The mobile phone number must be filled in',
+						phoneHK: 'The HK mobile phone number must be filled in',
+						number: 'The number must be filled in',
+						email: 'The email must be filled in',
+						date: 'The date must be filled in',
+						time: 'The time must be filled in',
+						max: 'This maximum value is {{0}}',
+						min: 'This minimum value is {{0}}'
+					};
+					break;
+				case "zh_HK":
+					defaultMsg = {
+						defaulterrormsg: '驗證不通過',
+						required: '此項必填',
+						mobile: '此項必須為手機號',
+						phoneHK: '此項必須為香港電話號碼',
+						number: '此項必須為數字',
+						email: '此項必須為郵箱',
+						date: '此項必須為日期',
+						time: '此項必須為時間',
+						max: '此項最大值為{{0}}',
+						min: '此項最小值為{{0}}'
+					};
+					break;
+				default:
+					defaultMsg = {
+						defaulterrormsg: '验证不通过',
+						required: '此项必填',
+						mobile: '此项必须为手机号',
+						phoneHK: '此项必须为香港电话号码',
+						number: '此项必须为数字',
+						email: '此项必须为邮箱',
+						date: '此项必须为日期',
+						time: '此项必须为时间',
+						max: '此项最大值为{{0}}',
+						min: '此项最小值为{{0}}'
+					};
+			}
+			return defaultMsg;
+		}
+
+		//验证规则
+		var validateRules = {
+			// 判断字符串是否为空
+			"required": function (str) {
+				return !(str.replace(/\s/g, "") == "" || typeof str != "string");
+			},
+			// 判断是否是手机号码
+			"mobile": function (str) {
+				return new RegExp(SnRegExp.mobile).test(str);
+			},
+			// 判断是否是香港电话号码
+			"phoneHK": function (str) {
+				return new RegExp(SnRegExp.phoneHK).test(str);
+			},
+			// 判断是否是数字
+			"number": function (str) {
+				return new RegExp(SnRegExp.num).test(str);
+			},
+			// 判断是否是日期格式
+			"date": function (str) {
+				return new RegExp(SnRegExp.date).test(str);
+			},
+			// 判断是否是时间格式
+			"time": function (str) {
+				return new RegExp(SnRegExp.time).test(str);
+			},
+			// 判断是否是email
+			"email": function (str) {
+				return new RegExp(SnRegExp.email).test(str);
+			},
+			//判断是否整数
+			"digits": function (str) {
+				return new RegExp(SnRegExp.intege).test(str);
+			},
+			//判断是否整数
+			"max": function (str, _max) {
+				return (str.length <= _max);
+			},
+			//判断是否整数
+			"min": function (str, _min) {
+				return (str.length >= _min);
+			},
+			//判断是否含有xss攻击相关敏感字符
+			"xss":function(str){
+                var test =new RegExp(SnRegExp.xss).test(str);               
+                return !test;
+			},
+			//判断是否json字符串
+			"json":function(str){
+				try {
+					JSON.parse(str)
+				} catch (error) {
+					return false
+				}
+				return true
+			}
+			/*  // 判断是否纯数字
+			  "fullNumber":function(str){
+			      return new RegExp(SnRegExp.fullNumber).test(str);
+			  },*/
+		};
+		// addValidateRules添加验证规则
+		var addValidateRules = function (obj) {
+			var addVal = {};
+			for (var name in obj) {
+				(function (name) {
+					addVal[name] = function (str) {
+						return new RegExp(SnRegExp[name]).test(str)
+					};
+				})(name);
+			}
+			return addVal;
+		};
+		//返回参数
+		function returnObj() {
+			var _sef = this;
+			var returnOjb = {
+				//添加验证规则
+				addMethod: function (name, callback) {
+					if (name && callback && tools.isFunction(callback) && !_sef.validateRules[name]) {
+						_sef.validateRules[name] = callback
+					}
+				},
+				extendMessages: function (msg) {
+					tools.isObject(msg) && $.extend(_sef.defaultMsg, msg);
+				},
+				form: function () {
+					var validate = _sef.dealValidateArr();
+					if (validate) {
+						_sef.returnObj.trigger("success");
+					}
+					return validate;
+				},
+				valid: function (name, rule) {
+					var validate = _sef.getRule(rule),
+						ele = _sef.form.find("[name=" + name + "]")[0],
+						value = getValue(ele) || '';
+					if (validate.is_rule) {
+						return !validate.validate(value);
+					}
+				},
+				showError: function (name, msg, is_tips) {
+					var ele = _sef.form.find("[name=" + name + "]")[0],
+						msg = msg || _sef.defaultMsg.defaulterrormsg,
+						is_tips = is_tips === false ? false : true;
+					if (ele) {
+						_sef.errorFun(msg, ele, is_tips);
+					} else {
+						console.log("name为" + name + "的节点不存在");
+					}
+				}
+			};
+
+			$.extend(returnOjb, EventTarget.prototype, {
+				version: VERSION
+			});
+
+			return returnOjb;
+		}
+
+		function getValue(ele) {
+			var $ele = $(ele),
+				$checkboxes = $ele.closest('.sn-checkboxes'),
+				$posDom = $checkboxes.length > 0 ? $checkboxes : $ele.closest('.sn-radios'),
+				value = "";
+			if ($posDom.length > 0) {
+				var name = $ele.attr('name'),
+					$checked = $posDom.find("[name='" + name + "'][checked]");
+				$.each($checked, function (i, n) {
+					if (i === 0) {
+						value += $(n).val();
+					} else {
+						value += "," + $(n).val();
+					}
+				})
+			} else {
+				value = $ele.val()
+			}
+			return value;
+		}
+
+		function getPosEle(ele) {
+			var posEle;
+			if ($(ele).css('display') == 'none' || $(ele).attr('type') == 'hidden') {
+				if ($(ele).closest('.combo-select').length > 0) {//comboSelect组件
+					posEle = $(ele).closest('.combo-select')[0];
+				} else if ($(ele).closest('.sn-select').length > 0) {//select组件
+					posEle = $(ele).siblings()[0];
+				} else  if ($(ele).closest('.sn-selectTree').length > 0) {//select组件
+					posEle = $(ele).siblings()[0];
+				} else{
+					posEle = ele;
+				}
+			} else if ($(ele).closest('.sn-checkboxes').length > 0) { //checkboxes组件
+				posEle = $(ele).closest('.sn-checkboxes')[0];
+			} else if ($(ele).closest('.sn-radios').length > 0) { //checkboxes组件
+				posEle = $(ele).closest('.sn-radios')[0];
+			} else {
+				posEle = ele;
+			}
+			return posEle
+		}
+		// 判断是否为原生DOM
+		var isDOM = function (obj) {
+			return obj.tagName ? true : false;
+		};
+		var verifyOnOff = false; // 正在验证或者重置的标识位
+		var objClass = function (options) {
+			// if(!tools.isObject(options)||(options.el&&(options.el.length!=1))||!options.rules)return false;
+			if (options.el) {
+				if (options.el instanceof jQuery && options.el.length > 0) {
+					this.form = options.el;
+				} else if (isDOM(options.el)) {
+					this.form = $(options.el);
+				} else if (typeof (options.el) == 'string' && $(options.el).length > 0) {
+					this.form = $(options.el);
+				}
+			} else {
+				this.form = $("<div></div>")
+			}
+			this.form.addClass('validatorForm').css({
+				'position': 'relative'
+			});
+			this.submitBtn = options.submitBtn;
+			this.resetBtn = options.resetBtn;
+			this.rules = options.rules;
+			this.messages = options.messages;
+			this.msgPos = options.msgPos ? options.msgPos : 'top';
+			this.defaultMsg = getDefaultMsg(options.lang);
+			this.dialog = options.dialog;
+			this.items = {};
+			this.SnRegExp = $.extend(SnRegExp, options.pattern);
+			this.addVal = addValidateRules(options.pattern);
+			//其中addValidateRules(SnRegExp)是遍历SnRegExp内置正则得到规则函数；validateRules是声明的；this.addval是遍历用户自定义规则pattern配置项获取的
+			this.validateRules = $.extend(addValidateRules(SnRegExp), validateRules, this.addVal);
+			this.returnObj = returnObj.call(this);
+			EventTarget.call(this.returnObj);
+			this.eventInit();
+			// this.validateRules = validateRules;
+			return this.returnObj;
+		};
+
+		$.extend(objClass.prototype, {
+			//事件绑定
+			eventInit: function () {
+				this.getItems();
+				//提交按钮点击事件
+				if (this.submitBtn && this.submitBtn.length) {
+					this.submitBtn.on("click", $.proxy(function () {
+						if (this.dealValidateArr()) {
+							this.returnObj.trigger("success");
+						}
+					}, this));
+				}
+				//重置按钮点击事件
+				if (this.resetBtn && this.resetBtn.length) {
+					this.resetBtn.on("click", $.proxy(function (e) {
+						verifyOnOff = true;
+						//						this.form[0].reset();
+						this.returnObj.trigger('reset', e);
+					}, this));
+				}
+
+				//				this.form.on("click", $.proxy(function() {
+				// this.getItems();
+				//				}, this));
+
+				//				this.form.on('scroll', $.proxy(function() {
+				// var scrollT = this.form[0].scrollTop;
+				// var scrollL = this.form[0].scrollLeft;
+				// var t = parseFloat($('.errorText').css('top'));
+				// var l = parseFloat($('.errorText').css('left'));
+				// console.log(t, l , scrollT);
+				// $('.errorText').css({top: t - scrollT, left: l - scrollL});
+				//				}, this))
+
+			},
+			//根据el类型绑定对应事件
+			eventEleInit: function (item) {
+				var _self = this;
+				switch (item.tagName) {
+					case "INPUT":
+						_self.form.on("blur focus", 'input[name=' + item.name + ']', function (e) {
+							if (e.type == "focusin") {
+								//    _self.dialogClose();
+								// $(this).next('.textBox').hide();
+								_self.focusEvent.call(this);
+							} else {
+								// var error = _self.verify(item);
+								// _self.errorFun(error, item, true);
+								setTimeout($.proxy(function () {
+									if (!verifyOnOff) {
+										var error = _self.verify(item, this);
+										_self.errorFun(error, this, true);
+									}
+								}, this), 200);
+							}
+						});
+						break;
+					case "TEXTAREA":
+						_self.form.on("change blur focus", 'textarea[name=' + item.name + ']', function (e) {
+							if (e.type == "focusin") {
+								_self.focusEvent.call(this);
+							} else {
+								setTimeout($.proxy(function () {
+									var error = _self.verify(item, this);
+									_self.errorFun(error, this, true);
+								}, this), 200);
+							}
+
+						});
+						break;
+					case "SELECT":
+						_self.form.on("change", 'select[name=' + item.name + ']', function () {
+							// _self.dialogClose();
+							// var error = _self.verify(item);
+							// _self.errorFun(error, item, true);
+							_self.focusEvent.call(this);
+							setTimeout($.proxy(function () {
+								var error = _self.verify(item, this);
+								_self.errorFun(error, this, true);
+							}, this), 200);
+							// var error = _self.verify(item, this);
+							// _self.errorFun(error, this, true);
+						});
+						break;
+					default:
+						break;
+				}
+			},
+			focusEvent: function () {
+				//				clearTimeout(this.timer);
+				var ele = this,
+					name = $(ele).attr('name'),
+					posEle = getPosEle(ele);
+				verifyOnOff = false;
+				clearTimeout(posEle.timer);
+				//遍历所有errorTips找到name匹配的	，清除掉
+				$('.errorText').each(function (k, v) {
+					if ($(v).data('name') == name) {
+						$(v).remove();
+						$(posEle).removeClass("validate-error");
+						return false;
+					}
+				});
+			},
+			//循环this.rules得到 this.items;
+			getItems: function (callback) {
+				if (this.items) {
+					for (var item in this.rules) {
+						if (!this.items[item]) {
+							var ele = this.form.find("[name=" + item + "]");
+							if (ele.length) {
+								this.items[item] = {
+									name: item,
+									el: ele,
+									tagName: ele[0].tagName,
+									rules: this.rules[item].split("|")
+								};
+								this.eventEleInit(this.items[item]);
+								// var that = this;
+								// $.each(ele, function (k, v) {
+								//     // $('<span class="afterBox"></span>').insertAfter($(v)).append($('<span class="textBox"></span>'));
+								//     if (that.msgPos === 'right') {
+								//         $('<span class="afterBox"></span>').css({ 'display': 'inline-block', 'width': v.offsetWidth, 'height': v.offsetHeight }).insertAfter($(v)).append($(v)).append($('<span class="textBox"></span>')).find('.textBox').css({ 'left': v.offsetWidth + 3, 'bottom': 0 });
+								//     } else {
+								//         // top值要加上重构后的具体父级的上边距值
+								//         $('<span class="afterBox"></span>').css({ 'display': 'inline-block', 'width': v.offsetWidth, 'height': v.offsetHeight }).insertAfter($(v)).append($(v)).append($('<span class="textBox"></span>')).find('.textBox').css({ 'top': v.offsetTop + v.offsetHeight + 3, 'left': 0 });
+								//     }
+								// });
+							}
+						}
+						// this.items[item] && callback && callback.call(this, this.items[item]);
+						if (this.items[item] && callback) {
+							var $ele = this.form.find("[name=" + item + "]");
+							callback.call(this, this.items[item], $ele[0]);
+							//							$.each($ele, $.proxy(function(k, v) {
+							//								callback.call(this, this.items[item], v);
+							//							}, this))
+						}
+					}
+				}
+			},
+			//处理 validateArr
+			dealValidateArr: function () {
+				var errorText = [];
+				// 统一验证前把所有提示弹框移除
+				this.form.find('.errorText').remove();
+				this.form.find('.validate-error').removeClass('validate-error');
+				verifyOnOff = true;
+				this.getItems(function (item, ele) {
+					var posEle=getPosEle(ele)
+					//判断是否是隐藏节点或不存在的节点,考虑到select等组件ele本身即为隐藏状态，使用posele去判断
+					var isHidden = $(posEle).closest("*:hidden").length > 0 || posEle === undefined;
+					if (!isHidden && item["rules"]) {
+						//						clearTimeout(getPosEle(ele).timer); 
+						var error_text = this.verify(item, ele);
+						this.errorFun(error_text, ele, this.dialog);
+						if (error_text) {
+							errorText.push(error_text);
+						}
+					}
+				});
+				// 返回验证结果布尔值
+				if (errorText.length) {
+					return false;
+				} else {
+					return true;
+				}
+			},
+			//判断value值是否通过验证 返回错误信息
+			verify: function (item, ele) {
+				var errorText = '';
+				var value = getValue(ele) || ''; //解决如果$(ele).val()返回null时会报错的BUG
+				$.each(item.rules, $.proxy(function (kev, v) {
+					var validate = this.getRule(v);
+					if (validate.is_rule) {
+						if (($.inArray("required", item.rules) != -1) || (this.validateRules["required"](value))) {
+							if (validate.validate(value)) {
+								if (this.messages && this.messages[item.name] && this.messages[item.name][validate.val]) {
+									errorText = this.messages[item.name][validate.val]
+								} else {
+									//errorText = (this.defaultMsg[validate.val] ? this.defaultMsg[validate.val] : ("验证不通过"));
+									errorText = this.defaultMsgFun(validate);
+								}
+								return false
+							}
+						}
+					}
+				}, this));
+				return errorText;
+			},
+			//默认提示文本
+			defaultMsgFun: function (obj) {
+				var error = "";
+				if (this.defaultMsg[obj.val]) {
+					error = this.defaultMsg[obj.val].replace('\{\{0\}\}', obj.str1 ? obj.str1 : "").replace('\{\{1\}\}', obj.str2 ? obj.str2 : "");
+				} else {
+					error = this.defaultMsg['defaulterrormsg'];
+				}
+				return error;
+			},
+			//针对 min-10 max-20 这样的规则进行集中处理 后期可在扩展
+			getRule: function (rule) {
+				var ruleObj = {},
+					_self = this,
+					arr = [];
+				if (rule.split("-")[1]) {
+					arr = rule.split("-");
+					ruleObj.val = arr[0];
+					ruleObj.str1 = arr[1];
+				} else {
+					ruleObj.val = rule
+				}
+				$.extend(ruleObj, {
+					is_rule: Boolean(_self.validateRules[ruleObj.val]),
+					validate: function (value) {
+						var is_validate;
+						if (ruleObj.str1) {
+							is_validate = _self.validateRules[ruleObj.val](value, ruleObj.str1)
+						} else {
+							is_validate = _self.validateRules[ruleObj.val](value)
+						}
+						return !is_validate
+					}
+				});
+				return ruleObj;
+			},
+			//元素错误处理
+			errorFun: function (errorText, ele, is_tips) {
+				var _self = this;
+				var posEle = getPosEle(ele);
+				var name = $(ele).attr('name');
+				if (errorText) {
+					// item.el.parent().addClass("validate-error");
+					$(posEle).addClass("validate-error");
+					if (is_tips) {
+						clearTimeout(posEle.timer);
+						//遍历所有errorTips找到name匹配的	，清除掉
+						$('.errorText').each(function (k, v) {
+							if ($(v).data('name') == name) {
+								$(v).remove();
+								return false;
+							}
+						});
+						// 做一个dialog
+						var t = $(posEle).offset().top,
+							l = $(posEle).offset().left,
+							T = this.form.offset().top,
+							L = this.form.offset().left,
+							scrollT = this.form[0].scrollTop,
+							scrollL = this.form[0].scrollLeft,
+							eleH = posEle.offsetHeight,
+							eleW = posEle.offsetWidth,
+							textHeight = 23;
+						var $nowSpan = $('<div class="errorText"></span><span class="icon-i">!</span><span class="error-text"></span></div>');
+						//                      var $nowSpan = $('<span class="errorText"></span>');
+						if (_self.msgPos === 'right') {
+							$nowSpan.addClass("arrow-left").data('name', name).appendTo(this.form).css({
+								top: t - T + scrollT + (eleH - textHeight) / 2,
+								left: l - L + scrollL + eleW + 3,
+								width: eleW
+							});
+						} else if (_self.msgPos === 'bottom') {
+							$nowSpan.addClass("arrow-bottom").data('name', name).appendTo(this.form).css({
+								top: t - T + scrollT + eleH,
+								left: l - L + scrollL,
+								width: eleW
+							});
+						} else { // top
+							$nowSpan.addClass("arrow-top").data('name', name).appendTo(this.form).css({
+								top: t - T + scrollT - textHeight,
+								left: l - L + scrollL,
+								width: eleW
+							});
+						}
+						$nowSpan.find('.error-text').text(errorText);
+						posEle.timer = setTimeout(function () {
+							$nowSpan.remove();
+							$(posEle).removeClass("validate-error");
+							verifyOnOff = false;
+						}, 2500)
+					}
+				} else {
+					$(posEle).removeClass("validate-error");
+				}
+			}
+		});
+
+		//解决ie下console.log()报错问题
+		window.console = window.console || (function () {
+			var c = {};
+			c.log = c.warn = c.debug = c.info = c.error = c.time = c.dir = c.profile = c.clear = c.exception = c.trace = c.assert = function () { };
+			return c;
+		})();
+
+		return objClass;
+	});
+
+(function(c){var d=document,a='appendChild',i='styleSheet',s=d.createElement('style');s.type='text/css';d.getElementsByTagName('head')[0][a](s);s[i]?s[i].cssText=c:s[a](d.createTextNode(c));})
+('.validatorForm input,\r\n.validatorForm select,\r\n.validatorForm textarea {\r\n\tborder: 1px solid #d0d6d9;\r\n\t/*box-sizing: border-box;*/\r\n}\r\n\r\n.validatorForm .validate-error {\r\n\t/*color: #c9344b;*/\r\n\t/*outline: 2px solid #f66;\r\n    outline-offset: -2px;*/\r\n\tbackground-color: #fff2f4!important;\r\n\tborder: 1px solid #F65A56!important;\r\n}\r\n/*由于radios的容器本身没有border,加上border后有搓动,改用outline*/\r\n.validatorForm .sn-radios.validate-error,.validatorForm .sn-checkboxes.validate-error{\r\n\tborder: none!important;\r\n\toutline:1.5px solid #F65A56;\r\n}\r\n\r\n.errorText {\r\n\tposition: absolute;\r\n\tfont-size: 0;\r\n\tz-index: 99;\r\n\theight: 23px;\r\n\tline-height: 23px;\r\n\tbackground-color: #ffebeb;\r\n\tbox-sizing: border-box;\r\n\tborder: 1px solid #faccc6;\r\n\tbox-shadow: 1px 1px 1px rgba(0, 0, 0, .2);\r\n}\r\n\r\n.errorText .icon-i {\r\n\tposition: absolute;\r\n\ttop: 5px;\r\n\tleft: 0;\r\n\tdisplay: inline-block;\r\n\twidth: 11px;\r\n\theight: 11px;\r\n\tbackground-image:url(\'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAALCAYAAACprHcmAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAMBJREFUeNps0bEJwlAUheFoITZa2BhE1NJCS3eIGSCFE2QDdQJdwQEsdADNGmIvES1iZSFYWPkfuIHHIxc+Lpx3EsJL7btIApshVogRosAJW9xVqFsxwhUpBmjYTi2PyvIIB7SC6lF+VE/lNdrO4Q0d2+4DS5Xn3pt6eNt2J1a564VNjG27E6r8qvjOfUVWqHz2Ql3TDE8vz1Te4OOEuu8L+k6m843KORLvgYlX1Hle/pQMU+zwwM/2znKdB38BBgDwbiPAiLQ75AAAAABJRU5ErkJggg==\');\r\n\tbackground-size: 100% 100%;\r\n\tbackground-repeat:no-repeat;\r\n\tmargin: 0 6px;\r\n}\r\n\r\n.errorText .error-text {\r\n\tdisplay: inline-block;\r\n\twidth: 100%;\r\n\tpadding-left: 24px;\r\n\tfont-size: 12px;\r\n\tcolor: #fe5750;\r\n\tbox-sizing: border-box;\r\n\twhite-space: nowrap;\r\n\ttext-overflow: ellipsis;\r\n\toverflow: hidden;\r\n}\r\n\r\n.errorText:before {\r\n\tcontent: \"\";\r\n\tdisplay: block;\r\n\twidth: 0;\r\n\theight: 0;\r\n\tposition: absolute;\r\n\tleft: 12px;\r\n\tborder-right: 6px solid transparent;\r\n\tborder-left: 6px solid transparent;\r\n}\r\n\r\n.errorText:after {\r\n\tcontent: \"\";\r\n\tdisplay: block;\r\n\twidth: 0;\r\n\theight: 0;\r\n\tposition: absolute;\r\n\tleft: 12px;\r\n\tborder-right: 6px solid transparent;\r\n\tborder-left: 6px solid transparent;\r\n}\r\n.errorText.arrow-top:before{\r\n\tbottom: -18px;\r\n\tborder-top: 9px solid #faccc6;\r\n\tborder-bottom: 9px solid transparent;\r\n}\r\n.errorText.arrow-top:after{\r\n\tbottom: -17px;\r\n\tborder-top: 9px solid #ffebeb;\r\n\tborder-bottom: 9px solid transparent;\r\n}\r\n\r\n.errorText.arrow-bottom:before{\r\n\ttop:-18px;\r\n\tborder-top: 9px solid transparent;\r\n\tborder-bottom: 9px solid #faccc6;\r\n}\r\n.errorText.arrow-bottom:after{\r\n\ttop:-16px;\r\n\tborder-top: 9px solid transparent;\r\n\tborder-bottom: 9px solid #ffebeb;\r\n}\r\n\r\n.errorText.arrow-left:before{\r\n\tleft: -13px;\r\n\ttop:5px;\r\n\tborder-top: 6px solid transparent;\r\n\tborder-bottom: 6px solid transparent;\r\n\tborder-right: 6px solid #faccc6;\r\n\tborder-left: 6px solid transparent;\r\n}\r\n.errorText.arrow-left:after{\r\n\tleft: -12px;\r\n\ttop:5px;\r\n\tborder-top: 6px solid transparent;\r\n\tborder-bottom: 6px solid transparent;\r\n\tborder-right: 6px solid #ffebeb;\r\n\tborder-left: 6px solid transparent;\r\n}\r\n');

@@ -1,0 +1,2362 @@
+
+define('text!components/selectTree/selectTree.tpl',[],function () { return '{{#if label}}\r\n<label></label>\r\n{{/if}}\r\n<div class="has-formlayer">\r\n\t{{#if inputClassName}}\r\n    \t<input class="texts {{inputClassName}}" type="text" name="" value="" {{#if closeSearch}}readonly{{/if}}>\r\n    {{else}}\r\n    \t<input class="texts bg-tree" type="text" name="" value="" {{#if closeSearch}}readonly{{/if}}>\r\n    {{/if}}\r\n    {{#if selectText}}\r\n    <div class="selectText">\r\n        <span class="selectText1">选择</span><span class="selectBtn">|</span><span class="selectText2">清空</span>\r\n    </div>\r\n    {{/if}}\r\n    <input class="values" type="hidden" name="" value="">\r\n</div>\r\n\r\n';});
+
+
+define('text!components/selectTree/selectTreePanel.tpl',[],function () { return '<div class="formlayer-content {{className}}">\r\n    <div class="ztree" id="JS_tree">\r\n        <span class="formlayer-content-loading">加载中...</span>\r\n    </div>\r\n</div>\r\n<div class="formlayer-btns">\r\n    {{#if checkAllNodes}}\r\n    <label class="formlayer-btns-check" for="chkall">\r\n        <input id="chkall" type="checkbox"><span class="chkallNode">全选</span>\r\n        <em class="checkboxCover"></em>\r\n    </label>\r\n    <div>\r\n        {{#if check}}\r\n        <a href="javascript:;" class="confirm t-btn t-btn-xs t-btn-blue">确定</a>\r\n        {{/if}}\r\n        <a href="javascript:;" class="empty t-btn t-btn-xs">清空</a>\r\n    </div>\r\n    {{else}}\r\n        {{#if check}}\r\n        <a href="javascript:;" class="confirm t-btn t-btn-xs t-btn-blue">确定</a>\r\n        {{/if}}\r\n        <a href="javascript:;" class="empty t-btn t-btn-xs">清空</a>\r\n    {{/if}}\r\n</div>';});
+
+
+define('lib/requirejs/css.min!components/selectTree/selectTree',[],function(){});
+
+define('lib/requirejs/css.min!lib/zTree_v3/css/zTreeStyle/zTreeStyle',[],function(){});
+/*! artDialog v6.0.5 | https://github.com/aui/artDialog */
+!(function () {
+
+var __modules__ = {};
+
+function require (id) {
+    var mod = __modules__[id];
+    var exports = 'exports';
+
+    if (typeof mod === 'object') {
+        return mod;
+    }
+
+    if (!mod[exports]) {
+        mod[exports] = {};
+        mod[exports] = mod.call(mod[exports], require, mod[exports], mod) || mod[exports];
+    }
+
+    return mod[exports];
+}
+
+function define (path, fn) {
+    __modules__[path] = fn;
+}
+
+
+
+define("jquery", function () {
+    return jQuery;
+});
+
+
+/*!
+ * PopupJS
+ * Date: 2014-11-09
+ * https://github.com/aui/popupjs
+ * (c) 2009-2014 TangBin, http://www.planeArt.cn
+ *
+ * This is licensed under the GNU LGPL, version 2.1 or later.
+ * For details, see: http://www.gnu.org/licenses/lgpl-2.1.html
+ */
+
+define("popup", function (require) {
+
+var $ = require("jquery");
+
+var _count = 0;
+var _isIE6 = !('minWidth' in $('html')[0].style);
+var _isFixed = !_isIE6;
+
+
+function Popup () {
+
+    this.destroyed = false;
+
+
+    this.__popup = $('<div />')
+    /*使用 <dialog /> 元素可能导致 z-index 永远置顶的问题(chrome)*/
+    .css({
+        display: 'none',
+        position: 'absolute',
+        /*
+        left: 0,
+        top: 0,
+        bottom: 'auto',
+        right: 'auto',
+        margin: 0,
+        padding: 0,
+        border: '0 none',
+        background: 'transparent'
+        */
+        outline: 0
+    })
+    .attr('tabindex', '-1')
+    .html(this.innerHTML)
+    .appendTo('body');
+
+
+    this.__backdrop = this.__mask = $('<div />')
+    .css({
+        opacity: .7,
+        background: '#000'
+    });
+
+
+    // 使用 HTMLElement 作为外部接口使用，而不是 jquery 对象
+    // 统一的接口利于未来 Popup 移植到其他 DOM 库中
+    this.node = this.__popup[0];
+    this.backdrop = this.__backdrop[0];
+
+    _count ++;
+}
+
+
+$.extend(Popup.prototype, {
+    
+    /**
+     * 初始化完毕事件，在 show()、showModal() 执行
+     * @name Popup.prototype.onshow
+     * @event
+     */
+
+    /**
+     * 关闭事件，在 close() 执行
+     * @name Popup.prototype.onclose
+     * @event
+     */
+
+    /**
+     * 销毁前事件，在 remove() 前执行
+     * @name Popup.prototype.onbeforeremove
+     * @event
+     */
+
+    /**
+     * 销毁事件，在 remove() 执行
+     * @name Popup.prototype.onremove
+     * @event
+     */
+
+    /**
+     * 重置事件，在 reset() 执行
+     * @name Popup.prototype.onreset
+     * @event
+     */
+
+    /**
+     * 焦点事件，在 focus() 执行
+     * @name Popup.prototype.onfocus
+     * @event
+     */
+
+    /**
+     * 失焦事件，在 blur() 执行
+     * @name Popup.prototype.onblur
+     * @event
+     */
+
+    /** 浮层 DOM 素节点[*] */
+    node: null,
+
+    /** 遮罩 DOM 节点[*] */
+    backdrop: null,
+
+    /** 是否开启固定定位[*] */
+    fixed: false,
+
+    /** 判断对话框是否删除[*] */
+    destroyed: true,
+
+    /** 判断对话框是否显示 */
+    open: false,
+
+    /** close 返回值 */
+    returnValue: '',
+
+    /** 是否自动聚焦 */
+    autofocus: true,
+
+    /** 对齐方式[*] */
+    align: 'bottom left',
+
+    /** 内部的 HTML 字符串 */
+    innerHTML: '',
+
+    /** CSS 类名 */
+    className: 'ui-popup',
+
+    /**
+     * 显示浮层
+     * @param   {HTMLElement, Event}  指定位置（可选）
+     */
+    show: function (anchor) {
+
+        if (this.destroyed) {
+            return this;
+        }
+
+        var that = this;
+        var popup = this.__popup;
+        var backdrop = this.__backdrop;
+
+        this.__activeElement = this.__getActive();
+
+        this.open = true;
+        this.follow = anchor || this.follow;
+
+
+        // 初始化 show 方法
+        if (!this.__ready) {
+
+            popup
+            .addClass(this.className)
+            .attr('role', this.modal ? 'alertdialog' : 'dialog')
+            .css('position', this.fixed ? 'fixed' : 'absolute');
+
+            if (!_isIE6) {
+                $(window).on('resize', $.proxy(this.reset, this));
+            }
+
+            // 模态浮层的遮罩
+            if (this.modal) {
+                var backdropCss = {
+                    position: 'fixed',
+                    left: 0,
+                    top: 0,
+                    width: '100%',
+                    height: '100%',
+                    overflow: 'hidden',
+                    userSelect: 'none',
+                    zIndex: this.zIndex || Popup.zIndex
+                };
+
+
+                popup.addClass(this.className + '-modal');
+
+
+                if (!_isFixed) {
+                    $.extend(backdropCss, {
+                        position: 'absolute',
+                        width: $(window).width() + 'px',
+                        height: $(document).height() + 'px'
+                    });
+                }
+
+
+                backdrop
+                .css(backdropCss)
+                .attr({tabindex: '0'})
+                .on('focus', $.proxy(this.focus, this));
+
+                // 锁定 tab 的焦点操作
+                this.__mask = backdrop
+                .clone(true)
+                .attr('style', '')
+                .insertAfter(popup);
+
+                backdrop
+                .addClass(this.className + '-backdrop')
+                .insertBefore(popup);
+
+                this.__ready = true;
+            }
+
+
+            if (!popup.html()) {
+                popup.html(this.innerHTML);
+            }
+        }
+
+
+        popup
+        .addClass(this.className + '-show')
+        .show();
+
+        backdrop.show();
+
+
+        this.reset().focus();
+        this.__dispatchEvent('show');
+
+        return this;
+    },
+
+
+    /** 显示模态浮层。参数参见 show() */
+    showModal: function () {
+        this.modal = true;
+        return this.show.apply(this, arguments);
+    },
+    
+    
+    /** 关闭浮层 */
+    close: function (result) {
+        
+        if (!this.destroyed && this.open) {
+            
+            if (result !== undefined) {
+                this.returnValue = result;
+            }
+            
+            this.__popup.hide().removeClass(this.className + '-show');
+            this.__backdrop.hide();
+            this.open = false;
+            this.blur();// 恢复焦点，照顾键盘操作的用户
+            this.__dispatchEvent('close');
+        }
+    
+        return this;
+    },
+
+
+    /** 销毁浮层 */
+    remove: function () {
+
+        if (this.destroyed) {
+            return this;
+        }
+
+        this.__dispatchEvent('beforeremove');
+        
+        if (Popup.current === this) {
+            Popup.current = null;
+        }
+
+
+        // 从 DOM 中移除节点
+        this.__popup.remove();
+        this.__backdrop.remove();
+        this.__mask.remove();
+
+
+        if (!_isIE6) {
+            $(window).off('resize', this.reset);
+        }
+
+
+        this.__dispatchEvent('remove');
+
+        for (var i in this) {
+            delete this[i];
+        }
+
+        return this;
+    },
+
+
+    /** 重置位置 */
+    reset: function () {
+
+        var elem = this.follow;
+
+        if (elem) {
+            this.__follow(elem);
+        } else {
+            this.__center();
+        }
+
+        this.__dispatchEvent('reset');
+
+        return this;
+    },
+
+
+    /** 让浮层获取焦点 */
+    focus: function () {
+
+        var node = this.node;
+        var popup = this.__popup;
+        var current = Popup.current;
+        var index = this.zIndex = Popup.zIndex ++;
+
+        if (current && current !== this) {
+            current.blur(false);
+        }
+
+        // 检查焦点是否在浮层里面
+        if (!$.contains(node, this.__getActive())) {
+            var autofocus = popup.find('[autofocus]')[0];
+
+            if (!this._autofocus && autofocus) {
+                this._autofocus = true;
+            } else {
+                autofocus = node;
+            }
+
+            this.__focus(autofocus);
+        }
+
+        // 设置叠加高度
+        popup.css('zIndex', index);
+        //this.__backdrop.css('zIndex', index);
+
+        Popup.current = this;
+        popup.addClass(this.className + '-focus');
+
+        this.__dispatchEvent('focus');
+
+        return this;
+    },
+
+
+    /** 让浮层失去焦点。将焦点退还给之前的元素，照顾视力障碍用户 */
+    blur: function () {
+
+        var activeElement = this.__activeElement;
+        var isBlur = arguments[0];
+
+
+        if (isBlur !== false) {
+            this.__focus(activeElement);
+        }
+
+        this._autofocus = false;
+        this.__popup.removeClass(this.className + '-focus');
+        this.__dispatchEvent('blur');
+
+        return this;
+    },
+
+
+    /**
+     * 添加事件
+     * @param   {String}    事件类型
+     * @param   {Function}  监听函数
+     */
+    addEventListener: function (type, callback) {
+        this.__getEventListener(type).push(callback);
+        return this;
+    },
+
+
+    /**
+     * 删除事件
+     * @param   {String}    事件类型
+     * @param   {Function}  监听函数
+     */
+    removeEventListener: function (type, callback) {
+        var listeners = this.__getEventListener(type);
+        // 将函数体转换成字符串并去除空格空行和注释
+        function toStringMin (fn) {
+            var str = fn.toString();
+            str = str.replace(/("([^\\\"]*(\\.)?)*")|('([^\\\']*(\\.)?)*')|(\/{2,}.*?(\r|\n))|(\/\*(\n|.)*?\*\/)/g, function(word) { // 去除注释后的文本  
+                return /^\/{2,}/.test(word) || /^\/\*/.test(word) ? "" : word;
+            });
+            str = str.replace(/\s+/g, "");//去除空格空行
+            return str;
+        }
+        //如果不存在 callback 则清空该 type 下所有回调。
+        if (!callback) {
+            listeners.splice(0, listeners.length);
+        } else{
+            for (var i = 0; i < listeners.length; i ++) {
+                // 如果callBack为匿名函数，则将其函数体转换成字符串做比较。
+                if (listeners[i] === callback){
+                    listeners.splice(i--, 1);
+                }else if (toStringMin(callback) == toStringMin(listeners[i])) {
+                    listeners.splice(i--, 1);
+                }
+            }
+        }
+        return this;
+    },
+
+
+    // 获取事件缓存
+    __getEventListener: function (type) {
+        var listener = this.__listener;
+        if (!listener) {
+            listener = this.__listener = {};
+        }
+        if (!listener[type]) {
+            listener[type] = [];
+        }
+        return listener[type];
+    },
+
+
+    // 派发事件
+    __dispatchEvent: function (type) {
+        var listeners = this.__getEventListener(type);
+
+        if (this['on' + type]) {
+            this['on' + type]();
+        }
+
+        for (var i = 0; i < listeners.length; i ++) {
+            listeners[i].call(this);
+        }
+    },
+
+
+    // 对元素安全聚焦
+    __focus: function (elem) {
+        // 防止 iframe 跨域无权限报错
+        // 防止 IE 不可见元素报错
+        try {
+            // ie11 bug: iframe 页面点击会跳到顶部
+            if (this.autofocus && !/^iframe$/i.test(elem.nodeName)) {
+                elem.focus();
+            }
+        } catch (e) {}
+    },
+
+
+    // 获取当前焦点的元素
+    __getActive: function () {
+        try {// try: ie8~9, iframe #26
+            var activeElement = document.activeElement;
+            var contentDocument = activeElement.contentDocument;
+            var elem = contentDocument && contentDocument.activeElement || activeElement;
+            return elem;
+        } catch (e) {}
+    },
+
+
+    // 居中浮层
+    __center: function () {
+    
+        var popup = this.__popup;
+        var $window = $(window);
+        var $document = $(document);
+        var fixed = this.fixed;
+        var dl = fixed ? 0 : $document.scrollLeft();
+        var dt = fixed ? 0 : $document.scrollTop();
+        var ww = $window.width();
+        var wh = $window.height();
+        var ow = popup.width();
+        var oh = popup.height();
+        var left = (ww - ow) / 2 + dl;
+        var top = (wh - oh) * 382 / 1000 + dt;// 黄金比例
+        var style = popup[0].style;
+
+        
+        style.left = Math.max(parseInt(left), dl) + 'px';
+        style.top = Math.max(parseInt(top), dt) + 'px';
+    },
+    
+    
+    // 指定位置 @param    {HTMLElement, Event}  anchor
+    __follow: function (anchor) {
+        
+        var $elem = anchor.parentNode && $(anchor);
+        var popup = this.__popup;
+        
+
+        if (this.__followSkin) {
+            popup.removeClass(this.__followSkin);
+        }
+
+
+        // 隐藏元素不可用
+        if ($elem) {
+            var o = $elem.offset();
+            if (o.left * o.top < 0) {
+                return this.__center();
+            }
+        }
+        
+        var that = this;
+        var fixed = this.fixed;
+
+        var $window = $(window);
+        var $document = $(document);
+        var winWidth = $window.width();
+        var winHeight = $window.height();
+        var docLeft =  $document.scrollLeft();
+        var docTop = $document.scrollTop();
+
+
+        var popupWidth = popup.width();
+        var popupHeight = popup.height();
+        var width = $elem ? $elem.outerWidth() : 0;
+        var height = $elem ? $elem.outerHeight() : 0;
+        var offset = this.__offset(anchor);
+        var x = offset.left;
+        var y = offset.top;
+        var left =  fixed ? x - docLeft : x;
+        var top = fixed ? y - docTop : y;
+
+
+        var minLeft = fixed ? 0 : docLeft;
+        var minTop = fixed ? 0 : docTop;
+        var maxLeft = minLeft + winWidth - popupWidth;
+        var maxTop = minTop + winHeight - popupHeight;
+
+
+        var css = {};
+        var align = this.align.split(' ');
+        var className = this.className + '-';
+        var reverse = {top: 'bottom', bottom: 'top', left: 'right', right: 'left'};
+        var name = {top: 'top', bottom: 'top', left: 'left', right: 'left'};
+
+
+        var temp = [{
+            top: top - popupHeight,
+            bottom: top + height,
+            left: left - popupWidth,
+            right: left + width
+        }, {
+            top: top,
+            bottom: top - popupHeight + height,
+            left: left,
+            right: left - popupWidth + width
+        }];
+
+
+        var center = {
+            left: left + width / 2 - popupWidth / 2,
+            top: top + height / 2 - popupHeight / 2
+        };
+
+        
+        var range = {
+            left: [minLeft, maxLeft],
+            top: [minTop, maxTop]
+        };
+
+
+        // 超出可视区域重新适应位置
+        $.each(align, function (i, val) {
+
+            // 超出右或下边界：使用左或者上边对齐
+            if (temp[i][val] > range[name[val]][1]) {
+                val = align[i] = reverse[val];
+            }
+
+            // 超出左或右边界：使用右或者下边对齐
+            if (temp[i][val] < range[name[val]][0]) {
+                align[i] = reverse[val];
+            }
+
+        });
+
+
+        // 一个参数的情况
+        if (!align[1]) {
+            name[align[1]] = name[align[0]] === 'left' ? 'top' : 'left';
+            temp[1][align[1]] = center[name[align[1]]];
+        }
+
+
+        //添加follow的css, 为了给css使用
+        className += align.join('-') + ' '+ this.className+ '-follow';
+        
+        that.__followSkin = className;
+
+
+        if ($elem) {
+            popup.addClass(className);
+        }
+
+        
+        css[name[align[0]]] = parseInt(temp[0][align[0]]);
+        css[name[align[1]]] = parseInt(temp[1][align[1]]);
+        popup.css(css);
+
+    },
+
+
+    // 获取元素相对于页面的位置（包括iframe内的元素）
+    // 暂时不支持两层以上的 iframe 套嵌
+    __offset: function (anchor) {
+
+        var isNode = anchor.parentNode;
+        var offset = isNode ? $(anchor).offset() : {
+            left: anchor.pageX,
+            top: anchor.pageY
+        };
+
+
+        anchor = isNode ? anchor : anchor.target;
+        var ownerDocument = anchor.ownerDocument;
+        var defaultView = ownerDocument.defaultView || ownerDocument.parentWindow;
+        
+        if (defaultView == window) {// IE <= 8 只能使用两个等于号
+            return offset;
+        }
+
+        // {Element: Ifarme}
+        var frameElement = defaultView.frameElement;
+        var $ownerDocument = $(ownerDocument);
+        var docLeft =  $ownerDocument.scrollLeft();
+        var docTop = $ownerDocument.scrollTop();
+        var frameOffset = $(frameElement).offset();
+        var frameLeft = frameOffset.left;
+        var frameTop = frameOffset.top;
+        
+        return {
+            left: offset.left + frameLeft - docLeft,
+            top: offset.top + frameTop - docTop
+        };
+    }
+    
+});
+
+
+/** 当前叠加高度 */
+Popup.zIndex = 1024;
+
+
+/** 顶层浮层的实例 */
+Popup.current = null;
+
+
+return Popup;
+
+});
+
+// artDialog - 默认配置
+define("dialog-config", {
+
+    /* -----已注释的配置继承自 popup.js，仍可以再这里重新定义它----- */
+
+    // 对齐方式
+    //align: 'bottom left',
+    
+    // 是否固定定位
+    //fixed: false,
+    
+    // 对话框叠加高度值(重要：此值不能超过浏览器最大限制)
+    //zIndex: 1024,
+
+    // 设置遮罩背景颜色
+    backdropBackground: '#000',
+
+    // 设置遮罩透明度
+    backdropOpacity: 0.4,
+
+    // 消息内容
+    content: '<span class="ui-dialog-loading">Loading..</span>',
+    
+    // 标题
+    title: '',
+
+    // 对话框状态栏区域 HTML 代码
+    statusbar: '',
+    
+    // 自定义按钮
+    button: null,
+    
+    // 确定按钮回调函数
+    ok: null,
+    
+    // 取消按钮回调函数
+    cancel: null,
+
+    // 确定按钮文本
+    okValue: 'ok',
+    
+    // 取消按钮文本
+    cancelValue: '关闭',
+
+    cancelDisplay: true,
+    
+    // 内容宽度
+    width: '',
+    
+    // 内容高度
+    height: '',
+    
+    // 内容与边界填充距离
+    padding: '',
+    
+    // 对话框自定义 className
+    skin: '',
+
+    // 是否支持快捷关闭（点击遮罩层自动关闭）
+    quickClose: false,
+
+    // css 文件路径，留空则不会使用 js 自动加载样式
+    // 注意：css 只允许加载一个
+    cssUri: '../css/ui-dialog.css',
+
+    // 模板（使用 table 解决 IE7 宽度自适应的 BUG）
+    // js 使用 i="***" 属性识别结构，其余的均可自定义
+    innerHTML:
+        '<div i="dialog" class="ui-dialog">'
+        +       '<div class="ui-dialog-arrow-a"></div>'
+        +       '<div class="ui-dialog-arrow-b"></div>'
+        +       '<table class="ui-dialog-grid">'
+        +           '<tr>'
+        +               '<td i="header" class="ui-dialog-header">'
+        +                   '<div i="close" class="ui-dialog-close">&#215;</div>'
+        +                   '<div i="title" class="ui-dialog-title"></div>'
+        +               '</td>'
+        +           '</tr>'
+        +           '<tr>'
+        +               '<td i="body" class="ui-dialog-body">'
+        +                   '<div i="content" class="ui-dialog-content"></div>'
+        +                   '<div i="content-drag" class="ui-dialog-content-drag"></div>'
+        +               '</td>'
+        +           '</tr>'
+        +           '<tr>'
+        +               '<td i="footer" class="ui-dialog-footer">'
+        +                   '<div i="statusbar" class="ui-dialog-statusbar"></div>'
+        +                   '<div i="button" class="ui-dialog-button"></div>'
+        +               '</td>'
+        +           '</tr>'
+        +       '</table>'
+        +'</div>'
+    
+});
+
+/*!
+ * artDialog
+ * Date: 2014-11-09
+ * https://github.com/aui/artDialog
+ * (c) 2009-2014 TangBin, http://www.planeArt.cn
+ *
+ * This is licensed under the GNU LGPL, version 2.1 or later.
+ * For details, see: http://www.gnu.org/licenses/lgpl-2.1.html
+ */
+define("dialog", function (require) {
+
+var $ = require("jquery");
+var Popup = require("popup");
+var defaults = require("dialog-config");
+var css = defaults.cssUri;
+
+
+// css loader: RequireJS & SeaJS
+if (css) {
+    var fn = require[require.toUrl ? 'toUrl' : 'resolve'];
+    if (fn) {
+        css = fn(css);
+        css = '<link rel="stylesheet" href="' + css + '" />';
+        if ($('base')[0]) {
+            $('base').before(css);
+        } else {
+            $('head').append(css);
+        } 
+    }
+}
+
+
+var _count = 0;
+var _expando = new Date() - 0; // Date.now()
+var _isIE6 = !('minWidth' in $('html')[0].style);
+var _isMobile = 'createTouch' in document && !('onmousemove' in document)
+    || /(iPhone|iPad|iPod)/i.test(navigator.userAgent);
+var _isFixed = !_isIE6 && !_isMobile;
+
+
+var artDialog = function (options, ok, cancel) {
+
+    var originalOptions = options = options || {};
+    
+
+    if (typeof options === 'string' || options.nodeType === 1) {
+    
+        options = {content: options, fixed: !_isMobile};
+    }
+    
+
+    options = $.extend(true, {}, artDialog.defaults, options);
+    options.original = originalOptions;
+
+    var id = options.id = options.id || _expando + _count;
+    var api = artDialog.get(id);
+    
+    
+    // 如果存在同名的对话框对象，则直接返回
+    if (api) {
+        return api.focus();
+    }
+    
+    
+    // 目前主流移动设备对fixed支持不好，禁用此特性
+    if (!_isFixed) {
+        options.fixed = false;
+    }
+
+
+    // 快捷关闭支持：点击对话框外快速关闭对话框
+    if (options.quickClose && !options.modal) {
+        options.modal = true;
+        options.backdropOpacity = 0;
+    }
+    
+
+    // 按钮组
+    if (!$.isArray(options.button)) {
+        options.button = [];
+    }
+
+    // 确定按钮
+    if (ok !== undefined) {
+        options.ok = ok;
+    }
+    
+    if (options.ok) {
+        options.button.push({
+            id: 'ok',
+            value: options.okValue,
+            callback: options.ok,
+            autofocus: true
+        });
+    }
+    
+    // 取消按钮
+    if (cancel !== undefined) {
+        options.cancel = cancel;
+    }
+    
+    if (options.cancel) {
+        options.button.push({
+            id: 'cancel',
+            value: options.cancelValue,
+            callback: options.cancel,
+            display: options.cancelDisplay
+        });
+    }
+    
+
+    return artDialog.list[id] = new artDialog.create(options);
+};
+
+var popup = function () {};
+popup.prototype = Popup.prototype;
+var prototype = artDialog.prototype = new popup();
+
+artDialog.create = function (options) {
+    var that = this;
+
+    $.extend(this, new Popup());
+
+    var originalOptions = options.original;
+    var $popup = $(this.node).html(options.innerHTML);
+    var $backdrop = $(this.backdrop);
+
+    this.options = options;
+    this._popup = $popup;
+
+    
+    $.each(options, function (name, value) {
+        if (typeof that[name] === 'function') {
+            that[name](value);
+        } else {
+            that[name] = value;
+        }
+    });
+
+
+    // 更新 zIndex 全局配置
+    if (options.zIndex) {
+        Popup.zIndex = options.zIndex;
+    }
+
+
+    // 设置 ARIA 信息
+    $popup.attr({
+        'aria-labelledby': this._$('title')
+            .attr('id', 'title:' + this.id).attr('id'),
+        'aria-describedby': this._$('content')
+            .attr('id', 'content:' + this.id).attr('id')
+    });
+
+
+    // 关闭按钮
+    this._$('close')
+    .css('display', this.cancel === false ? 'none' : '')
+    .attr('title', this.cancelValue)
+    .on('click', function (event) {
+        that._trigger('cancel');
+        event.preventDefault();
+    });
+    
+
+    // 添加视觉参数
+    this._$('dialog').addClass(this.skin);
+    this._$('body').css('padding', this.padding);
+
+
+    // 点击任意空白处关闭对话框
+    if (options.quickClose) {
+        $backdrop
+        .on(
+            'onmousedown' in document ? 'mousedown' : 'click',
+            function () {
+            that._trigger('cancel');
+            return false;// 阻止抢夺焦点
+        });
+    }
+
+
+    // 遮罩设置
+    this.addEventListener('show', function () {
+        $backdrop.css({
+            opacity: 0,
+            background: options.backdropBackground
+        }).animate(
+            {opacity: options.backdropOpacity}
+        , 150);
+    });
+
+
+    // ESC 快捷键关闭对话框
+    this._esc = function (event) {
+        var target = event.target;
+        var nodeName = target.nodeName;
+        var rinput = /^input|textarea$/i;
+        var isTop = Popup.current === that;
+        var keyCode = event.keyCode;
+
+        // 避免输入状态中 ESC 误操作关闭
+        if (!isTop || rinput.test(nodeName) && target.type !== 'button') {
+            return;
+        }
+        
+        if (keyCode === 27) {
+            that._trigger('cancel');
+        }
+    };
+    //判断是否使用ESC键快速关闭
+    if((this.escClose!=false)?true:false){
+        $(document).on('keydown', this._esc);
+    }
+    this.addEventListener('remove', function () {
+        $(document).off('keydown', this._esc);
+        delete artDialog.list[this.id];
+    });
+
+
+    _count ++;
+    
+    artDialog.oncreate(this);
+
+    return this;
+};
+
+
+artDialog.create.prototype = prototype;
+
+
+
+$.extend(prototype, {
+
+    /**
+     * 显示对话框
+     * @name artDialog.prototype.show
+     * @param   {HTMLElement Object, Event Object}  指定位置（可选）
+     */
+    
+    /**
+     * 显示对话框（模态）
+     * @name artDialog.prototype.showModal
+     * @param   {HTMLElement Object, Event Object}  指定位置（可选）
+     */
+
+    /**
+     * 关闭对话框
+     * @name artDialog.prototype.close
+     * @param   {String, Number}    返回值，可被 onclose 事件收取（可选）
+     */
+
+    /**
+     * 销毁对话框
+     * @name artDialog.prototype.remove
+     */
+
+    /**
+     * 重置对话框位置
+     * @name artDialog.prototype.reset
+     */
+
+    /**
+     * 让对话框聚焦（同时置顶）
+     * @name artDialog.prototype.focus
+     */
+
+    /**
+     * 让对话框失焦（同时置顶）
+     * @name artDialog.prototype.blur
+     */
+
+    /**
+     * 添加事件
+     * @param   {String}    事件类型
+     * @param   {Function}  监听函数
+     * @name artDialog.prototype.addEventListener
+     */
+
+    /**
+     * 删除事件
+     * @param   {String}    事件类型
+     * @param   {Function}  监听函数
+     * @name artDialog.prototype.removeEventListener
+     */
+
+    /**
+     * 对话框显示事件，在 show()、showModal() 执行
+     * @name artDialog.prototype.onshow
+     * @event
+     */
+
+    /**
+     * 关闭事件，在 close() 执行
+     * @name artDialog.prototype.onclose
+     * @event
+     */
+
+    /**
+     * 销毁前事件，在 remove() 前执行
+     * @name artDialog.prototype.onbeforeremove
+     * @event
+     */
+
+    /**
+     * 销毁事件，在 remove() 执行
+     * @name artDialog.prototype.onremove
+     * @event
+     */
+
+    /**
+     * 重置事件，在 reset() 执行
+     * @name artDialog.prototype.onreset
+     * @event
+     */
+
+    /**
+     * 焦点事件，在 focus() 执行
+     * @name artDialog.prototype.onfocus
+     * @event
+     */
+
+    /**
+     * 失焦事件，在 blur() 执行
+     * @name artDialog.prototype.onblur
+     * @event
+     */
+
+    
+    /**
+     * 设置内容
+     * @param    {String, HTMLElement}   内容
+     */
+    content: function (html) {
+    
+        var $content = this._$('content');
+
+        // HTMLElement
+        if (typeof html === 'object') {
+            html = $(html);
+            $content.empty('').append(html.show());
+            //绑定beforeremove事件的回调函数中，会把content中的内容隐藏后添加到body中，目前尚不清楚为什么要这么做，故先注释。
+            // this.addEventListener('beforeremove', function () {
+            //     $('body').append(html.hide());
+            // });
+        // String
+        } else {
+            $content.html(html);
+        }
+                
+        return this.reset();
+    },
+    
+    
+    /**
+     * 设置标题
+     * @param    {String}   标题内容
+     */
+    title: function (text) {
+        this._$('title').text(text);
+        this._$('header')[text ? 'show' : 'hide']();
+        return this;
+    },
+
+
+    /** 设置宽度 */
+    width: function (value) {
+        this._$('content').css('width', value);
+        this._$('title').css('width', value);
+        return this.reset();
+    },
+
+
+    /** 设置高度 */
+    height: function (value) {
+        this._$('content').css('height', value);
+        return this.reset();
+    },
+
+
+    /**
+     * 设置按钮组
+     * @param   {Array, String}
+     * Options: value, callback, autofocus, disabled 
+     */
+    button: function (args) {
+        args = args || [];
+        var that = this;
+        var html = '';
+        var number = 0;
+        this.callbacks = {};
+        
+           
+        if (typeof args === 'string') {
+            html = args;
+            number ++;
+        } else {
+            $.each(args, function (i, val) {
+
+                var id = val.id = val.id || val.value;
+                var style = '';
+                that.callbacks[id] = val.callback;
+
+
+                if (val.display === false) {
+                    style = ' style="display:none"';
+                } else {
+                    number ++;
+                }
+
+                html +=
+                  '<button'
+                + ' type="button"'
+                + ' i-id="' + id + '"'
+                + style
+                + (val.disabled ? ' disabled' : '')
+                + (val.autofocus ? ' autofocus class="ui-dialog-autofocus"' : '')
+                + '>'
+                +   val.value
+                + '</button>';
+
+                that._$('button')
+                .on('click', '[i-id=' + id +']', function (event) {                
+                    var $this = $(this);
+                    if (!$this.attr('disabled')) {// IE BUG
+                        that._trigger(id);
+                    }
+                
+                    event.preventDefault();
+                });
+
+            });
+        }
+
+        this._$('button').html(html);
+        this._$('footer')[number ? 'show' : 'hide']();
+
+        return this;
+    },
+
+
+    statusbar: function (html) {
+        this._$('statusbar')
+        .html(html)[html ? 'show' : 'hide']();
+
+        return this;
+    },
+
+
+    _$: function (i) {
+        return this._popup.find('[i=' + i + ']');
+    },
+    
+    
+    // 触发按钮回调函数
+    _trigger: function (id) {
+        var fn = this.callbacks[id];
+            
+        return typeof fn !== 'function' || fn.call(this) !== false ?
+            this.close().remove() : this;
+    }
+    
+});
+
+
+
+artDialog.oncreate = $.noop;
+
+
+
+/** 获取最顶层的对话框API */
+artDialog.getCurrent = function () {
+    return Popup.current;
+};
+
+
+
+/**
+ * 根据 ID 获取某对话框 API
+ * @param    {String}    对话框 ID
+ * @return   {Object}    对话框 API (实例)
+ */
+artDialog.get = function (id) {
+    return id === undefined
+    ? artDialog.list
+    : artDialog.list[id];
+};
+
+artDialog.list = {};
+
+
+
+/**
+ * 默认配置
+ */
+artDialog.defaults = defaults;
+
+
+
+return artDialog;
+
+});
+
+
+
+
+/*!
+ * drag.js
+ * Date: 2013-12-06
+ * https://github.com/aui/artDialog
+ * (c) 2009-2014 TangBin, http://www.planeArt.cn
+ *
+ * This is licensed under the GNU LGPL, version 2.1 or later.
+ * For details, see: http://www.gnu.org/licenses/lgpl-2.1.html
+ */
+define("drag", function (require) {
+
+var $ = require("jquery");
+
+
+var $window = $(window);
+var $document = $(document);
+// var isTouch = 'createTouch' in document; //判断是否是移动端，
+var isTouch = false;
+var html = document.documentElement;
+var isIE6 = !('minWidth' in html.style);
+var isLosecapture = !isIE6 && 'onlosecapture' in html;
+var isSetCapture = 'setCapture' in html;
+
+
+var types = {
+    start: isTouch ? 'touchstart' : 'mousedown',
+    over: isTouch ? 'touchmove' : 'mousemove',
+    end: isTouch ? 'touchend' : 'mouseup'
+};
+
+
+var getEvent = isTouch ? function (event) {
+    if (!event.touches) {
+        event = event.originalEvent.touches.item(0);
+    }
+    return event;
+} : function (event) {
+    return event;
+};
+
+
+var DragEvent = function () {
+    this.start = $.proxy(this.start, this);
+    this.over = $.proxy(this.over, this);
+    this.end = $.proxy(this.end, this);
+    this.onstart = this.onover = this.onend = $.noop;
+};
+
+DragEvent.types = types;
+
+DragEvent.prototype = {
+
+    start: function (event) {
+        event = this.startFix(event);
+
+        $document
+        .on(types.over, this.over)
+        .on(types.end, this.end);
+        
+        this.onstart(event);
+        return false;
+    },
+
+    over: function (event) {
+        event = this.overFix(event);
+        this.onover(event);
+        return false;
+    },
+
+    end: function (event) {
+        event = this.endFix(event);
+
+        $document
+        .off(types.over, this.over)
+        .off(types.end, this.end);
+
+        this.onend(event);
+        return false;
+    },
+
+    startFix: function (event) {
+        event = getEvent(event);
+
+        this.target = $(event.target);
+        this.selectstart = function () {
+            return false;
+        };
+
+        $document
+        .on('selectstart', this.selectstart)
+        .on('dblclick', this.end);
+
+        if (isLosecapture) {
+            this.target.on('losecapture', this.end);
+        } else {
+            $window.on('blur', this.end);
+        }
+
+        if (isSetCapture) {
+            this.target[0].setCapture();
+        }
+
+        return event;
+    },
+
+    overFix: function (event) {
+        event = getEvent(event);
+        return event;
+    },
+
+    endFix: function (event) {
+        event = getEvent(event);
+
+        $document
+        .off('selectstart', this.selectstart)
+        .off('dblclick', this.end);
+
+        if (isLosecapture) {
+            this.target.off('losecapture', this.end);
+        } else {
+            $window.off('blur', this.end);
+        }
+
+        if (isSetCapture) {
+            this.target[0].releaseCapture();
+        }
+
+        return event;
+    }
+    
+};
+
+
+/**
+ * 启动拖拽
+ * @param   {HTMLElement}   被拖拽的元素
+ * @param   {Event} 触发拖拽的事件对象。可选，若无则监听 elem 的按下事件启动
+ */
+DragEvent.create = function (elem, event) {
+    var $elem = $(elem);
+    var dragEvent = new DragEvent();
+    var startType = DragEvent.types.start;
+    var noop = function () {};
+    var className = elem.className
+        .replace(/^\s|\s.*/g, '') + '-drag-start';
+
+    var minX;
+    var minY;
+    var maxX;
+    var maxY;
+
+    var api = {
+        onstart: noop,
+        onover: noop,
+        onend: noop,
+        off: function () {
+            $elem.off(startType, dragEvent.start);
+        }
+    };
+
+
+    dragEvent.onstart = function (event) {
+        var isFixed = $elem.css('position') === 'fixed';
+        var dl = $document.scrollLeft();
+        var dt = $document.scrollTop();
+        var w = $elem.width();
+        var h = $elem.height();
+
+        minX = 0;
+        minY = 0;
+        maxX = isFixed ? $window.width() - w + minX : $document.width() - w;
+        maxY = isFixed ? $window.height() - h + minY : $document.height() - h;
+
+        var offset = $elem.offset();
+        var left = this.startLeft = isFixed ? offset.left - dl : offset.left;
+        var top = this.startTop = isFixed ? offset.top - dt  : offset.top;
+
+        this.clientX = event.clientX;
+        this.clientY = event.clientY;
+
+        $elem.addClass(className);
+
+        // 开始拖动时显示div遮住iframe
+        $elem.find('[i=content-drag]').css('display','block');
+        //弹窗拖拽时添加遮盖
+        var backDropCss = {
+            position:'absolute',
+            top:0,
+            left:0,
+            width:'100%',
+            height:'100%',
+            background:'#ff0000', 
+            opacity:'0',
+            filter:'alpha(opacity=0)',   
+            zIndex:$elem.css('zIndex')-1  
+        }
+        $('<div id="backDropCss"></div>').appendTo('body');
+        $('#backDropCss').css(backDropCss);//分两次添加dom，解决ie下闪屏问题
+
+        api.onstart.call(elem, event, left, top);
+    };
+    
+
+    dragEvent.onover = function (event) {
+        var left = event.clientX - this.clientX + this.startLeft;
+        var top = event.clientY - this.clientY + this.startTop;
+        var style = $elem[0].style;
+
+        left = Math.max(minX, Math.min(maxX, left));
+        top = Math.max(minY, Math.min(maxY, top));
+
+        style.left = left + 'px';
+        style.top = top + 'px';
+         
+        api.onover.call(elem, event, left, top);
+    };
+    
+
+    dragEvent.onend = function (event) {
+        var position = $elem.position();
+        var left = position.left;
+        var top = position.top;
+        $elem.removeClass(className);
+
+        // 结束拖动时隐藏遮住iframe的div
+        $elem.find('[i=content-drag]').css('display','none');
+         //拖拽结束消除模态框
+        $('#backDropCss').remove();
+        api.onend.call(elem, event, left, top);
+    };
+
+
+    dragEvent.off = function () {
+        $elem.off(startType, dragEvent.start);
+    };
+
+
+    if (event) {
+        dragEvent.start(event);
+    } else {
+        $elem.on(startType, dragEvent.start);
+    }
+
+    return api;
+};
+
+return DragEvent;
+
+});
+
+/*!
+ * artDialog-plus
+ * Date: 2013-11-09
+ * https://github.com/aui/artDialog
+ * (c) 2009-2014 TangBin, http://www.planeArt.cn
+ *
+ * This is licensed under the GNU LGPL, version 2.1 or later.
+ * For details, see: http://www.gnu.org/licenses/lgpl-2.1.html
+ */
+define("dialog-plus", function (require) {
+
+var $ = require("jquery");
+var dialog = require("dialog");
+var drag = require("drag");
+
+dialog.oncreate = function (api) {
+
+    var options = api.options;
+    var originalOptions = options.original;
+
+    // 页面地址
+    var url = options.url;
+    // 页面加载完毕的事件
+    var oniframeload = options.oniframeload;
+
+    var $iframe;
+
+
+    if (url) {
+        this.padding = options.padding = 0;
+
+        $iframe = $('<iframe />');
+
+        $iframe.attr({
+            src: url,
+            name: api.id,
+            width: '100%',
+            height: '100%',
+            allowtransparency: 'yes',
+            frameborder: 'no',
+            scrolling: 'auto',
+            style:'display:block'
+        })
+        .on('load', function () {
+            var test;
+            
+            try {
+                // 跨域测试
+                test = $iframe[0].contentWindow.frameElement;
+            } catch (e) {}
+
+            if (test) {
+
+                if (!options.width) {
+                    api.width($iframe.contents().width());
+                }
+                
+                if (!options.height) {
+                    api.height($iframe.contents().height());
+                }
+            }
+
+            if (oniframeload) {
+                oniframeload.call(api);
+            }
+
+        });
+
+        api.addEventListener('beforeremove', function () {
+
+            // 重要！需要重置iframe地址，否则下次出现的对话框在IE6、7无法聚焦input
+            // IE删除iframe后，iframe仍然会留在内存中出现上述问题，置换src是最容易解决的方法
+            $iframe.attr('src', 'about:blank').remove();
+
+
+        }, false);
+
+        api.content($iframe[0]);
+
+        api.iframeNode = $iframe[0];
+
+    }
+
+
+    // 对于子页面呼出的对话框特殊处理
+    // 如果对话框配置来自 iframe
+    if (!(originalOptions instanceof Object)) {
+
+        var un = function () {
+            api.close().remove();
+        };
+
+        // 找到那个 iframe
+        for (var i = 0; i < frames.length; i ++) {
+            try {
+                if (originalOptions instanceof frames[i].Object) {
+                    // 让 iframe 刷新的时候也关闭对话框，
+                    // 防止要执行的对象被强制收回导致 IE 报错：“不能执行已释放 Script 的代码”
+                    $(frames[i]).one('unload', un);
+                    break;
+                }
+            } catch (e) {} 
+        }
+    }
+
+
+    // 拖拽支持
+    $(api.node).on(drag.types.start, '[i=title]', function (event) {
+        // 排除气泡类型的对话框
+        if (!api.follow) {
+            api.focus();
+            drag.create(api.node, event);
+        }
+    });
+
+};
+
+
+
+dialog.get = function (id) {
+
+    // 从 iframe 传入 window 对象
+    if (id && id.frameElement) {
+        var iframe = id.frameElement;
+        var list = dialog.list;
+        var api;
+        for (var i in list) {
+            api = list[i];
+            if (api.node.getElementsByTagName('iframe')[0] === iframe) {
+                return api;
+            }
+        }
+    // 直接传入 id 的情况
+    } else if (id) {
+        return dialog.list[id];
+    }
+
+};
+
+
+
+return dialog;
+
+});
+
+
+window.dialog = require("dialog-plus");
+
+})();
+define("artDialog", ["jquery"], function(){});
+
+
+define('lib/requirejs/css.min!lib/dialog/6.0.4/css/ui-dialog',[],function(){});
+/*
+ * 组件-selectTree
+ */
+define('selectTree',['jquery','eventTarget', 'hdb',
+    'text!components/selectTree/selectTree.tpl',
+    'text!components/selectTree/selectTreePanel.tpl', 
+    'lib/requirejs/css.min!components/selectTree/selectTree.css', 
+    'lib/requirejs/css.min!lib/zTree_v3/css/zTreeStyle/zTreeStyle.css', 
+    'artDialog',
+    'lib/requirejs/css.min!lib/dialog/6.0.4/css/ui-dialog.css',
+    'zTree'], 
+    function ($, EventTarget, hdb, tpl, panelTpl) {
+    var VERSION = '1.0.18';
+    var confirm = function(){
+        var nodes = [];
+        // 多选
+        if (this.zTree.setting && this.zTree.setting.check && 
+            this.zTree.setting.check.enable){
+            // 只选子节点
+            if(this.options.childNodeOnly){
+                var checkNodes=this.zTree.getCheckedNodes();
+                $.each(checkNodes,function(key,val){
+                    val.isParent||nodes.push(val);
+                })
+            }else{
+            // 选择包括父节点、子节点
+                nodes = this.zTree.getCheckedNodes();
+            }
+        }else{
+        // 单选
+            nodes = this.zTree.getSelectedNodes();
+            if(this.options.childOnly){
+                if(nodes[0].isParent) return;
+            }
+            if (this.options.childNodeOnly == false){
+                var parentNode = nodes[0].getParentNode();
+                while (parentNode){
+                    nodes.push(parentNode);
+                    parentNode = parentNode.getParentNode();
+                }
+            }
+        }
+        //监听点击了确定按钮的事件
+        if(this._listeners&&this._listeners['confirm']&&(this._listeners['confirm'][0](nodes)==false)) return false;
+        var textField = this.options.textField;
+        var valueField = this.options.valueField;
+        var nameArr = [],valueArr = [];
+        for(var i = 0;i<nodes.length;i++){
+            nameArr.push(textField && nodes[i][textField] || nodes[i].name || nodes[i].value || nodes[i].id);
+            valueArr.push(valueField && nodes[i][valueField] || nodes[i].value || nodes[i].id)
+        }
+        var nameStr = nameArr.join(',');
+        var valueStr = valueArr.join(',');
+        this.$el.find('.texts').val(nameStr);
+        this.$el.find('.values').val(valueStr).trigger("change");
+        if (this.options.isModal) {
+            $('.searchIpt', this.dialog.node).removeClass('focus');
+            this.dialog.remove();
+            this.dialog = null;
+        } else {
+            this.$el.find('.formlayer').remove();
+        }
+        this.$el.find('.texts').removeClass('focus');
+    };
+    var clear = function(){
+        var nodes;
+        if(this.options.check){  //多选
+            nodes = this.zTree.getCheckedNodes();
+            this.zTree.checkAllNodes(false);
+        }else{  //单选
+            //解决在配置expandAll:false时的报错问题
+            if(this.options.expandAll){
+                nodes = this.zTree.getNodesByFilter(function(node){
+                    var selectedClass = $('#'+ node.tId +'_a').attr('class');
+                    var isHasClass = selectedClass.indexOf('curSelectedNode');
+                    if(isHasClass != -1){
+                        return node;
+                    }
+                }, true);
+            }else{
+                var temAllNodes = this.zTree.transformToArray(this.zTree.getNodes() );
+                var hiddenValueField = this.options.valueField;
+                var hiddenValue = this.$el.find('.values').val();
+                    for(var order in temAllNodes){
+                        if(temAllNodes[order][hiddenValueField] ==  hiddenValue){
+                            nodes = temAllNodes[order];
+                        }
+                    }
+            }
+                 
+        }
+        //监听点击了清除按钮的事件
+        if(this._listeners&&this._listeners['clear']&&(this._listeners['clear'][0](nodes)==false)) return false;
+        this.$el.find('.texts').val('');
+        this.$el.find('.values').val('');
+        this.$el.find('.texts').removeClass('focus');
+        if (this.options.isModal) {
+            this.dialog.remove();
+            this.dialog = null;
+        } else {
+            this.$el.find('.formlayer').remove();
+        }
+    }
+   /*
+    *add by zhanglizhao 2016-03-02
+    * 数据循环
+    */
+   var dateFilter=function(data,callback){
+       for(var index in data){
+           callback&&callback(data[index]);
+           if(data[index].children&&data[index].children.length){
+               dateFilter(data[index].children,callback);
+           }
+       }
+    };
+
+   var treeInit=function(callback){
+        var defaultValue = this.$valueBox.val(); 
+        var defaultCheckedArr = (defaultValue && defaultValue.split(",")) || [];
+        var options = this.options;
+        var asyncTreeInit = function(){
+            var options = this.options;
+            var setting={
+                check:{
+                    enable:(options && options.check) || false
+                },
+                view:{
+                    showLine: options.showLine == true,
+                    showIcon: options.showIcon
+                },
+                async:{
+                    enable:true,
+                    url: options.async.url? options.async.url: alert('请配置正确的路径'),
+                    type: options.async.type? options.async.type: 'get',
+                    autoParam: options.async.autoParam? options.async.autoParam: [],
+                    otherParam: options.async.otherParam? options.async.otherParam: {},
+                    contentType: options.async.contentType? options.async.contentType: "application/x-www-form-urlencoded",
+                    dataType:options.async.dataType?options.async.dataType:'json',
+                    dataFilter:function(treeId, parentNode, childNodes){                        
+                        if(childNodes){
+                            //多选异步
+                            if(options.check){
+                                dateFilter(childNodes.beans,function(bean){
+                                    for(var i = 0; i<defaultCheckedArr.length;i++){
+                                        if(defaultCheckedArr[i] == bean[options.valueField]){
+                                            bean.checked=true;
+                                        }
+                                    }
+                                });
+                            }
+                            if(options.async.dataFilter && (typeof options.async.dataFilter == 'function')){
+                                var handleResult = options.async.dataFilter(treeId, parentNode, childNodes);
+                                if(handleResult){
+                                    var addResult = $.extend(handleResult,childNodes);
+                                    return addResult.beans;
+                                }else{
+                                    alert("你的dataFilter函数缺少return语句！");
+                                }
+                            }
+                            
+                            return childNodes.beans;
+                        }else{
+                            console.log("请求出错，没有数据");
+                        }
+                        
+                    }
+                }, 
+                callback:{
+                    onClick: onClick,
+                    onAsyncSuccess:$.proxy(function(event, treeId, treeNode, msg){
+                        treeCheckStatusInit.call(this);
+                        //单选异步
+                        if(!options.check){
+                            radioTree(msg.beans);
+                        }
+                        
+                    },this)
+                }
+            };
+            function onClick(e,treeId, treeNode) {
+                var zTree = $.fn.zTree.getZTreeObj('JS_tree');
+                zTree.expandNode(treeNode, {}, false, false);
+            };
+            if(this.returnRe){
+                this.zTree = $.fn.zTree.init($zTreeWrap,setting,this.returnRe);
+                this.returnRe = null;
+            }else if(typeof options.url == "string"){
+                
+                var ajaxOptions = $.extend({
+                    url:options.url,
+                    async:false, 
+                    dataType:'json',
+                    success:$.proxy(function(json,status){
+                        if (status && json.returnCode == '0') {
+                            this.json = json.beans;
+                            //多选异步
+                            if(options.check){
+                                dateFilter(json.beans,function(bean){
+                                    for(var i = 0; i<defaultCheckedArr.length;i++){
+                                        if(defaultCheckedArr[i] == bean[options.valueField]){
+                                            bean.checked=true;
+                                        }
+                                    }
+                                });
+                            }
+                            this.zTree = $.fn.zTree.init($zTreeWrap,setting,json.beans);
+                            
+
+                            if(options.expandAll){
+                                this.zTree.expandAll(true);
+                            }
+                            //单选异步
+                            if(!options.check){
+                                radioTree(json.beans);
+                            }
+                        }else{
+                            console.log('the component of select tree init bad. search error')
+                        }
+                    }, this)
+                }, options.ajax);
+                $.ajax(ajaxOptions);
+            }else if(typeof options.url == "object"){
+                //多选异步
+                if(options.check){
+                    dateFilter(options.url,function(bean){
+                        for(var i = 0; i<defaultCheckedArr.length;i++){
+                            if(defaultCheckedArr[i] == bean[options.valueField]){
+                                bean.checked=true;
+                            }
+                        }
+                    });
+                }
+                this.zTree = $.fn.zTree.init($zTreeWrap,setting,options.url);
+                if(options.expandAll){
+                    this.zTree.expandAll(true);
+                }
+                //单选异步
+                if(!options.check){
+                    radioTree(options.url);
+                }
+            }
+
+            
+                         
+        }
+        function radioTree(data){
+            dateFilter(data,function(bean){
+                for(var i = 0; i<defaultCheckedArr.length;i++){
+                    if(defaultCheckedArr[i] == bean[options.valueField]){
+                        var spans = $('span:contains('+bean.name+')');
+                        var spansLen = spans.length;
+                        for(var i=0; i<spansLen; i++){
+                            var txt = spans.eq(i).text();
+                            if( bean.name === txt){
+                                spans.eq(i).parent().addClass('curSelectedNode');
+                            }
+                        }
+
+                    }
+                }
+            });
+        }
+        var normalTreeInit = function($zTreeWrap,is_first,json){
+            var isCheck=(options && options.check) || false;
+            //多选
+            if(is_first&&isCheck&&options.value){
+                dateFilter(this.json,function(bean){
+                    bean.checked = false;
+                    if(defaultCheckedArr.length !=0){
+                        for(var i = 0; i<defaultCheckedArr.length;i++){
+                            if(defaultCheckedArr[i] == bean[options.valueField]){
+                                bean.checked=true;
+                            }
+                        }
+                    }
+                    
+                });
+            }
+
+            this.zTree = $.fn.zTree.init($zTreeWrap, {
+                check:{
+                    enable:isCheck
+                },
+                view:{
+                    showLine: options.showLine == true,
+                    showIcon: options.showIcon
+                },
+                callback:{
+                    onClick: onClick
+                }
+            },json);
+            function onClick(e,treeId, treeNode) {
+                var zTree = $.fn.zTree.getZTreeObj('JS_tree');
+                zTree.expandNode(treeNode, {}, false, false);
+            };
+            if (options.expandAll){
+                this.zTree.expandAll(true);
+            }
+            // 单选
+            if(!isCheck){
+                radioTree(json);
+            }
+        };
+        var treeCheckStatusInit = function(){
+            if (options.expandAll){
+                this.zTree.expandAll(true);
+            }
+            // 返回false说明不符合搜索条件
+            var nodes = this.zTree.getNodesByFilter(function(node){
+                return !node.isParent && $.inArray(node.value,defaultCheckedArr) >= 0;
+            });
+            for (var i = 0;i<nodes.length;i++) {
+                this.zTree.checkNode(nodes[i], true, !this.options.childNodeOnly);
+            }
+        }
+        if (options && options.url){
+            if(this.options.isModal){
+                var $zTreeWrap = $('.ztree', this.dialog.node);
+            }else{
+                var $zTreeWrap = this.$el.find('.ztree');
+            }
+            //异步
+            if(options.async && options.async.enable){
+               asyncTreeInit.call(this);
+            }else{
+            // 同步
+                // this.json在此保存了同步树第一次请求到的数据
+                if(this.returnRe){
+                    normalTreeInit.call(this,$zTreeWrap,true,this.returnRe);
+                    this.returnRe = null;
+                }else if(this.json){ 
+                    normalTreeInit.call(this,$zTreeWrap,true,this.json);
+                }else{
+                    if(typeof options.url == "string"){
+                        
+                        var ajaxOptions = $.extend({
+                            url:options.url,
+                            async:false,
+                            dataType:'json',
+                            success:$.proxy(function(json,status){
+                                if (status && json.returnCode == '0') {
+                                    this.json=json.beans;
+                                    normalTreeInit.call(this,$zTreeWrap,true,this.json);
+                                }else{
+                                    console.log('the component of select tree init bad. search error')
+                                }
+                            }, this)
+                        }, options.ajax);
+                        $.ajax(ajaxOptions);
+                    }else if(typeof options.url == "object"){
+                        this.json = options.url;
+                        normalTreeInit.call(this,$zTreeWrap,true,this.json);
+                    } 
+                }
+            }
+
+        }else{
+            console.log('the component of select tree init bad. please set url for data.');
+        }
+    };
+    var panelInit = function(e){
+        var $textBox = $(e.currentTarget);
+        this.$valueBox = $textBox.siblings('.values');
+        if(this.options.isModal){
+            if(!this.dialog){
+                var searchWrap = '';
+                if(this.options.closeSearch !== true){
+                    searchWrap = '<div class="searchWrap"><input type="text" class="searchIpt" placeholder="检索"/></div>';
+                }
+                var params = {
+                    modal: true,
+                    content: searchWrap + '<div class="formlayer formlayer-has-btns">',
+                    title : this.options.label, 
+                    onclose:$.proxy(function(){
+                        this.$el.find('.texts').removeClass('focus');
+                        this.dialog = null;
+                    },this),
+                    width : 326  //对话框宽度
+                };
+                this.dialog = new dialog(params);
+                
+                $(this.dialog.node).off("click",'.confirm').on('click','.confirm',$.proxy(confirm,this));
+                $(this.dialog.node).off("click",'.empty').on('click','.empty',$.proxy(clear,this));
+                if(!this.options.check){
+                    var id = $('.ztree',panelTpl).attr('id');
+                    $(this.dialog.node).off("click",'.ztree a[id^="'+id+'_"]').on('click','.ztree a[id^="'+id+'_"]',$.proxy(confirm,this));
+                } 
+                
+                if(this.options.closeSearch !== true){
+                    //文本框内容变化的事件
+                    $(this.dialog.node).off("keyup",'.searchIpt').on('keyup','.searchIpt',$.proxy(function(e){
+                        var $textBox = $(e.currentTarget);
+                        var textBoxText = $.trim($textBox.val());
+                        this.$valueBox = this.$el.find('.values');
+                        this.$valueBox.val('');
+                        $textBox.addClass('focus');
+                        if($(".formlayer", this.dialog.node).children().length) {
+                            $(".formlayer", this.dialog.node).empty();
+                        }
+                        if(!this.json){
+                            treeInit.call(this);
+                        }
+                        this.zTree.checkAllNodes(false);
+                        this.returnRe=loop(this.json,textBoxText);
+                        this.$valueBox.val('');
+                        panelInit.call(this,e);
+                        this.trigger('panelInit',e);
+                    },this));
+                }
+                this.dialog.show();
+            }
+            if($('.formlayer', this.dialog.node).children().length==0){
+                var template = hdb.compile(panelTpl);
+                this.options.checkAllNodes = false;
+                $('.formlayer', this.dialog.node).html(template(this.options));
+                treeInit.call(this);
+            }
+        }else{
+            var $formlayer = $('.sn-selectTree .formlayer');
+            if($formlayer.length){
+                var $con = $formlayer.closest('.sn-selectTree');
+                if(!$con.is(this.$el)){
+                    $formlayer.remove();
+                }
+            }
+            if(this.$el.find('.formlayer').length==0){
+                this.$el.find('.has-formlayer').append('<div class="formlayer formlayer-has-btns">');
+                var template = hdb.compile(panelTpl);
+                this.$el.find('.formlayer').html(template(this.options));
+                if(this.options.checkAllNodes){
+                    this.$el.find('.formlayer-btns').addClass('formlayer-btns-check');
+                }
+                treeInit.call(this);   
+            }
+            this.$el.find('input[type=checkbox]').on('click',$.proxy(function(e){
+                var checkedAll = $(e.currentTarget).is(':checked');
+                $('.checkboxCover',this.$el).toggleClass('checked');
+                // 同样适用 var checkedAll = $(e.currentTarget).prop('checked');
+                this.zTree.checkAllNodes(checkedAll);
+            },this));
+        }
+    };
+    var spaceClose = function(e,$formlayer){
+        var $target = $(e.target||e.currentTarget);
+        var $el = $formlayer.closest('.sn-selectTree');
+        if($target.closest($el).length == 0){ 
+            $formlayer.remove();
+            $el.find('.texts').removeClass('focus');
+        }
+    };
+    var loop = function (arr,value){
+        var newArr=[];
+        for(var i=0;i<arr.length;i++){
+            if (arr[i].name.indexOf(value) != -1) {
+                // var children = arr[i].children?loop(arr[i].children, value):[];
+                newArr.push($.extend({},arr[i],{
+                    children:arr[i].children
+                }))
+            } else {
+                if (arr[i].children) {
+                    var children = loop(arr[i].children, value);
+                    if (children&&children.length) {
+                        newArr.push($.extend({},arr[i],{children:children}));
+                    }
+                }
+            }
+        }
+        return newArr;
+    }
+    var objClass = function(config){
+        initialize.call(this,config);
+    }; 
+    var initialize = function(options){
+        // 对this.$el赋值前对options.el类型判断，jquery对象，DOM对象，字符串
+        if(options.el && options.el instanceof jQuery){
+            this.$el = options.el;
+        }else if(options.el && (typeof (options.el) == 'string')){
+            this.$el = $(options.el);
+        }else{ 
+            this.$el = $('<div></div>');         
+        }
+        this.options = options;
+        EventTarget.call(this);
+        this.$el.addClass('sn-selectTree');
+ 
+        if(!this.options.check){
+            this.options.showIcon = true;
+        }else{
+            if(typeof(this.options.showIcon) == 'undefined'){
+                this.options.showIcon = true;
+            }
+        }
+        if(!this.options.showIcon){
+            this.options.checkAllNodes = false;
+        }
+        var template = hdb.compile(tpl);
+        var $tpl = $('<div></div>').html(template(this.options));
+        $tpl.children('label').html(this.options.label);
+        $tpl.find('.has-formlayer > .texts').attr({
+            name: 'sn-' + this.options.name + '-text',
+            value: this.options.text
+        });
+        if(this.options.selectText){
+            $tpl.find('.texts').css('backgroundImage','none');
+            $tpl.find('.texts').css('padding-right','68px');
+        }
+        $tpl.find('.has-formlayer > .values').attr({
+            name: this.options.name,
+            value: this.options.value
+        });
+        this.$el.html($tpl.html());
+        //自定义事件
+        eventInit.call(this);
+    };
+    var eventInit = function(){
+        //判断搜索关键字的面板是否显示，显示则点击文本框时不显示树面板
+        this.$el.on('click','.texts',$.proxy(function(e){
+            this.$el.find('.texts').addClass('focus');
+            if($(".formlayer-search",this.$el).length) {
+                $(".formlayer-search",this.$el).remove();
+            }
+            panelInit.call(this,e);
+            this.trigger('panelInit',e);
+        },this));
+        
+        //点击“选择”和“清空”字样的事件
+        this.$el.on('click','.selectText1',$.proxy(function(){
+            this.$el.find('.texts').trigger('click');
+        },this));
+        this.$el.on('click','.selectText2',$.proxy(function(){
+            this.$el.find('.texts').val('');
+            this.$el.find('.values').val('');
+            if (!this.options.isModal) {
+                this.$el.find('.formlayer').remove();
+            }
+        },this));
+        
+        if (!this.options.isModal) {
+            this.$el.on('click','.confirm',$.proxy(confirm,this));
+            this.$el.on('click','.empty',$.proxy(clear,this));
+            if(!this.options.check){
+                var id = $('.ztree',panelTpl).attr('id');
+                this.$el.on('click','.ztree a[id^="'+id+'_"]',$.proxy(confirm,this));
+            } 
+            
+            if(this.options.closeSearch !== true){
+                //文本框内容变化的事件
+                this.$el.on('keyup','.texts',$.proxy(function(e){
+                    var $textBox = $(e.currentTarget);
+                    var textBoxText = $.trim($textBox.val());
+                    this.$valueBox = $textBox.siblings('.values');
+                    this.$valueBox.val('');
+                    this.$el.find('.texts').addClass('focus');
+                    if($(".formlayer",this.$el).length) {
+                        $(".formlayer",this.$el).remove();
+                    }
+                    if(textBoxText.length){
+                        if(!this.json){
+                            treeInit.call(this);
+                        }
+                        this.zTree.checkAllNodes(false);
+                        this.returnRe=loop(this.json,textBoxText);
+                        this.$valueBox.val('');
+                        panelInit.call(this,e);
+                        this.trigger('panelInit',e);
+                    }else{
+                        return;
+                    }
+                },this));
+            }
+        }
+    };
+    $(document).on('click',function(e){
+        var $formlayer = $('.sn-selectTree .formlayer');
+        if($formlayer.length != 0){
+            spaceClose(e,$formlayer);
+        }
+    });
+    $.extend(objClass.prototype,EventTarget.prototype, {
+        version:VERSION,
+        reload:function(beans){
+            if(typeof(beans) == 'string' && this.options.async.enable){
+                this.options.url = beans;
+            }else if(typeof(beans) == 'object' && !this.options.async.enable){
+                this.json = beans;
+            }
+        },
+        set:function(text,value){
+            var valueField = this.options.valueField,
+                textField = this.options.textField;
+            if(arguments.length == 2){
+                if(this.json){
+                    this.zTree.checkAllNodes(false);
+                    dateFilter(this.json,function(bean){
+                        if(value == bean[valueField]){
+                            bean.checked=true;
+                        }
+                    });
+                }
+                this.$el.find('.texts').val(text);
+                this.$el.find('.values').val(value);
+            }else if(arguments.length == 1 && typeof(text) == 'object'){
+                var texts = [],values = [];
+                for(var i = 0; i<text.length;i++){
+                    texts.push(text[i][textField]);
+                    values.push(text[i][valueField]);
+                }
+                if(this.options.check || (!this.options.check && values.length == 1)){
+                    if(this.json){
+                        this.zTree.checkAllNodes(false);
+                        dateFilter(this.json,function(bean){
+                            for(var i = 0; i<values.length;i++){
+                                if(values[i] == bean[valueField]){
+                                    bean.checked=true;
+                                }
+                            }
+                        });
+                    }
+                    var textStr = texts.join(',');
+                    var valueStr = values.join(',');
+                    this.$el.find('.texts').val(textStr);
+                    this.$el.find('.values').val(valueStr);
+                }
+            }
+        },
+        disable:function(){
+            this.$el.find('.texts').prop('disabled',true).css({
+                backgroundColor:'rgb(235, 235, 228)'
+            });
+            this.$el.find('.values').prop('disabled',true);
+            this.$el.find('.selectText').css({
+                backgroundColor:'rgb(235, 235, 228)',
+                filter:'opacity(alpha=0)'
+            });
+            this.$el.off('click','.selectText2');
+        },
+        enable:function(){
+            this.$el.find('.texts').prop('disabled',false).css({
+                backgroundColor:'rgb(255, 255, 255)'
+            });
+            this.$el.find('.values').prop('disabled',false);
+            this.$el.find('.selectText').css({
+                backgroundColor:'rgb(255, 255, 255)',
+                filter:'opacity(alpha=1)'
+            });
+            this.$el.on('click','.selectText2',$.proxy(function(){
+                this.$el.find('.texts').val('');
+                this.$el.find('.values').val('');
+                if (!this.options.isModal) {
+                    this.$el.find('.formlayer').remove();
+                }
+            },this));
+        }
+    });
+    return objClass;
+});
+
+(function(c){var d=document,a='appendChild',i='styleSheet',s=d.createElement('style');s.type='text/css';d.getElementsByTagName('head')[0][a](s);s[i]?s[i].cssText=c:s[a](d.createTextNode(c));})
+('/* add by  wangyakun  start*/\r\n.sn-selectTree{\r\n    width: 100%;\r\n    height: 36px;\r\n}\r\n.sn-selectTree>label{\r\n    width: 32% ;\r\n   display: block;\r\n   float: left;\r\n   font-size:14px;\r\n   height: 32px;\r\n   line-height: 32px;\r\n   color: #666;\r\n   text-align: right;\r\n   overflow: hidden;\r\n   text-overflow: ellipsis;\r\n   white-space: nowrap;\r\n}\r\n.sn-selectTree>.has-formlayer { \r\n    position: relative;\r\n    width: 62%;\r\n    display: block;\r\n    float: left;\r\n    height: 36px;\r\n    color: #222;\r\n    text-align: left;\r\n    margin-left: 2%;\r\n}\r\n.sn-selectTree>.has-formlayer>.selectText{\r\n    position: absolute;\r\n    right: 2px;\r\n    top: 2px;\r\n    font-size: 12px;\r\n    height: 26px;\r\n    line-height: 26px;\r\n}\r\n.sn-selectTree>.has-formlayer>.selectText>.selectText1{\r\n    color: #339dd9;\r\n    cursor: pointer;\r\n    margin-left: 4px;\r\n}\r\n.sn-selectTree>.has-formlayer>.selectText>.selectBtn{\r\n    margin: 0 4px;\r\n    color: #ccc;\r\n}\r\n.sn-selectTree>.has-formlayer>.selectText>.selectText2{\r\n    color: #ccc;\r\n    margin-right: 4px;\r\n    cursor: pointer;\r\n}\r\n/* add by  wangyakun  end*/\r\n.sn-selectTree>div>div.formlayer {\r\n    position: absolute;\r\n    left: 0;\r\n    right: 0;\r\n    top: 37px;\r\n    z-index: 10000;\r\n    padding: 6px;\r\n    background: #FFF;\r\n    box-sizing: border-box;\r\n    -webkit-box-shadow: 0 1px 3px #999;\r\n    box-shadow: 0 1px 3px #999;\r\n    text-align: left;\r\n    border: 1px solid #DDD;\r\n}\r\n\r\n.sn-selectTree>div>div.formlayer:before, .sn-selectTree>div>div.formlayer:after{content: \"\"; display: block; width: 0; height: 0; position: absolute; right: 15px; border-top: 8px solid transparent; border-right: 6px solid transparent; border-left: 6px solid transparent;}\r\n.sn-selectTree>div>div.formlayer:after{top: -14px; border-bottom: 8px solid #FFF;}\r\n.sn-selectTree>div>div.formlayer:before{top: -16px; border-bottom: 8px solid #d4d9db;}\r\n\r\n.sn-selectTree > .has-formlayer > .texts { \r\n    width:100%;\r\n    height: 30px;\r\n    line-height: 22px;\r\n    padding: 3px 10px;\r\n    box-sizing: border-box;\r\n    outline: none;\r\n    border: 1px solid #d0d6d9;\r\n    padding-right: 24px;\r\n    background-image: url(\'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAQCAYAAAD9L+QYAAAACXBIWXMAAAsTAAALEwEAmpwYAAAKTWlDQ1BQaG90b3Nob3AgSUNDIHByb2ZpbGUAAHjanVN3WJP3Fj7f92UPVkLY8LGXbIEAIiOsCMgQWaIQkgBhhBASQMWFiApWFBURnEhVxILVCkidiOKgKLhnQYqIWotVXDjuH9yntX167+3t+9f7vOec5/zOec8PgBESJpHmomoAOVKFPDrYH49PSMTJvYACFUjgBCAQ5svCZwXFAADwA3l4fnSwP/wBr28AAgBw1S4kEsfh/4O6UCZXACCRAOAiEucLAZBSAMguVMgUAMgYALBTs2QKAJQAAGx5fEIiAKoNAOz0ST4FANipk9wXANiiHKkIAI0BAJkoRyQCQLsAYFWBUiwCwMIAoKxAIi4EwK4BgFm2MkcCgL0FAHaOWJAPQGAAgJlCLMwAIDgCAEMeE80DIEwDoDDSv+CpX3CFuEgBAMDLlc2XS9IzFLiV0Bp38vDg4iHiwmyxQmEXKRBmCeQinJebIxNI5wNMzgwAABr50cH+OD+Q5+bk4eZm52zv9MWi/mvwbyI+IfHf/ryMAgQAEE7P79pf5eXWA3DHAbB1v2upWwDaVgBo3/ldM9sJoFoK0Hr5i3k4/EAenqFQyDwdHAoLC+0lYqG9MOOLPv8z4W/gi372/EAe/tt68ABxmkCZrcCjg/1xYW52rlKO58sEQjFu9+cj/seFf/2OKdHiNLFcLBWK8ViJuFAiTcd5uVKRRCHJleIS6X8y8R+W/QmTdw0ArIZPwE62B7XLbMB+7gECiw5Y0nYAQH7zLYwaC5EAEGc0Mnn3AACTv/mPQCsBAM2XpOMAALzoGFyolBdMxggAAESggSqwQQcMwRSswA6cwR28wBcCYQZEQAwkwDwQQgbkgBwKoRiWQRlUwDrYBLWwAxqgEZrhELTBMTgN5+ASXIHrcBcGYBiewhi8hgkEQcgIE2EhOogRYo7YIs4IF5mOBCJhSDSSgKQg6YgUUSLFyHKkAqlCapFdSCPyLXIUOY1cQPqQ28ggMor8irxHMZSBslED1AJ1QLmoHxqKxqBz0XQ0D12AlqJr0Rq0Hj2AtqKn0UvodXQAfYqOY4DRMQ5mjNlhXIyHRWCJWBomxxZj5Vg1Vo81Yx1YN3YVG8CeYe8IJAKLgBPsCF6EEMJsgpCQR1hMWEOoJewjtBK6CFcJg4Qxwicik6hPtCV6EvnEeGI6sZBYRqwm7iEeIZ4lXicOE1+TSCQOyZLkTgohJZAySQtJa0jbSC2kU6Q+0hBpnEwm65Btyd7kCLKArCCXkbeQD5BPkvvJw+S3FDrFiOJMCaIkUqSUEko1ZT/lBKWfMkKZoKpRzame1AiqiDqfWkltoHZQL1OHqRM0dZolzZsWQ8ukLaPV0JppZ2n3aC/pdLoJ3YMeRZfQl9Jr6Afp5+mD9HcMDYYNg8dIYigZaxl7GacYtxkvmUymBdOXmchUMNcyG5lnmA+Yb1VYKvYqfBWRyhKVOpVWlX6V56pUVXNVP9V5qgtUq1UPq15WfaZGVbNQ46kJ1Bar1akdVbupNq7OUndSj1DPUV+jvl/9gvpjDbKGhUaghkijVGO3xhmNIRbGMmXxWELWclYD6yxrmE1iW7L57Ex2Bfsbdi97TFNDc6pmrGaRZp3mcc0BDsax4PA52ZxKziHODc57LQMtPy2x1mqtZq1+rTfaetq+2mLtcu0W7eva73VwnUCdLJ31Om0693UJuja6UbqFutt1z+o+02PreekJ9cr1Dund0Uf1bfSj9Rfq79bv0R83MDQINpAZbDE4Y/DMkGPoa5hpuNHwhOGoEctoupHEaKPRSaMnuCbuh2fjNXgXPmasbxxirDTeZdxrPGFiaTLbpMSkxeS+Kc2Ua5pmutG003TMzMgs3KzYrMnsjjnVnGueYb7ZvNv8jYWlRZzFSos2i8eW2pZ8ywWWTZb3rJhWPlZ5VvVW16xJ1lzrLOtt1ldsUBtXmwybOpvLtqitm63Edptt3xTiFI8p0in1U27aMez87ArsmuwG7Tn2YfYl9m32zx3MHBId1jt0O3xydHXMdmxwvOuk4TTDqcSpw+lXZxtnoXOd8zUXpkuQyxKXdpcXU22niqdun3rLleUa7rrStdP1o5u7m9yt2W3U3cw9xX2r+00umxvJXcM970H08PdY4nHM452nm6fC85DnL152Xlle+70eT7OcJp7WMG3I28Rb4L3Le2A6Pj1l+s7pAz7GPgKfep+Hvqa+It89viN+1n6Zfgf8nvs7+sv9j/i/4XnyFvFOBWABwQHlAb2BGoGzA2sDHwSZBKUHNQWNBbsGLww+FUIMCQ1ZH3KTb8AX8hv5YzPcZyya0RXKCJ0VWhv6MMwmTB7WEY6GzwjfEH5vpvlM6cy2CIjgR2yIuB9pGZkX+X0UKSoyqi7qUbRTdHF09yzWrORZ+2e9jvGPqYy5O9tqtnJ2Z6xqbFJsY+ybuIC4qriBeIf4RfGXEnQTJAntieTE2MQ9ieNzAudsmjOc5JpUlnRjruXcorkX5unOy553PFk1WZB8OIWYEpeyP+WDIEJQLxhP5aduTR0T8oSbhU9FvqKNolGxt7hKPJLmnVaV9jjdO31D+miGT0Z1xjMJT1IreZEZkrkj801WRNberM/ZcdktOZSclJyjUg1plrQr1zC3KLdPZisrkw3keeZtyhuTh8r35CP5c/PbFWyFTNGjtFKuUA4WTC+oK3hbGFt4uEi9SFrUM99m/ur5IwuCFny9kLBQuLCz2Lh4WfHgIr9FuxYji1MXdy4xXVK6ZHhp8NJ9y2jLspb9UOJYUlXyannc8o5Sg9KlpUMrglc0lamUycturvRauWMVYZVkVe9ql9VbVn8qF5VfrHCsqK74sEa45uJXTl/VfPV5bdra3kq3yu3rSOuk626s91m/r0q9akHV0IbwDa0b8Y3lG19tSt50oXpq9Y7NtM3KzQM1YTXtW8y2rNvyoTaj9nqdf13LVv2tq7e+2Sba1r/dd3vzDoMdFTve75TsvLUreFdrvUV99W7S7oLdjxpiG7q/5n7duEd3T8Wej3ulewf2Re/ranRvbNyvv7+yCW1SNo0eSDpw5ZuAb9qb7Zp3tXBaKg7CQeXBJ9+mfHvjUOihzsPcw83fmX+39QjrSHkr0jq/dawto22gPaG97+iMo50dXh1Hvrf/fu8x42N1xzWPV56gnSg98fnkgpPjp2Snnp1OPz3Umdx590z8mWtdUV29Z0PPnj8XdO5Mt1/3yfPe549d8Lxw9CL3Ytslt0utPa49R35w/eFIr1tv62X3y+1XPK509E3rO9Hv03/6asDVc9f41y5dn3m978bsG7duJt0cuCW69fh29u0XdwruTNxdeo94r/y+2v3qB/oP6n+0/rFlwG3g+GDAYM/DWQ/vDgmHnv6U/9OH4dJHzEfVI0YjjY+dHx8bDRq98mTOk+GnsqcTz8p+Vv9563Or59/94vtLz1j82PAL+YvPv655qfNy76uprzrHI8cfvM55PfGm/K3O233vuO+638e9H5ko/ED+UPPR+mPHp9BP9z7nfP78L/eE8/sl0p8zAAAAIGNIUk0AAHolAACAgwAA+f8AAIDpAAB1MAAA6mAAADqYAAAXb5JfxUYAAACzSURBVHjaYvz69/9/BhoBJgYaAhZiFe4/fobh1MVrDGb6WgyOlibkG941czHDz1+/MMQTgn0Ylm3aSZnhP3/9YqjNTcZw+dJNOxjM9bWpHyyOliZEu5g+EUpsRJEToYzVk+f9jw3wYliwdgtBxbAILc+II87lloa6DEs37WCwMdGHu6h58lyqRCgjthyKzfDRHMrAzsbG0Dx5LsU5lJHYUnH/8TMMJy9eZTDX16a+4eQAwACJu18+0dIuVAAAAABJRU5ErkJggg==\');\r\n    background-repeat: no-repeat;\r\n    background-color: #f5fdff;\r\n    background-position: right center;\r\n}\r\n.sn-selectTree > .has-formlayer > .texts::-ms-clear {display:none;}\r\n.sn-selectTree > .has-formlayer > .texts:hover,.sn-selectTree > .has-formlayer > .texts.focus{\r\n    background-color: #ebfbff;\r\n    border: 1px solid #0085d0;\r\n    background-image: url(\'data:image/png;base64,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\');\r\n}\r\n.formlayer > .formlayer-content{\r\n    height:150px;\r\n    overflow:auto;\r\n    /* padding: 6px; */\r\n}\r\n.formlayer>.formlayer-content>.ztree>.formlayer-content-loading{\r\n    display:block;\r\n    padding-left: 20px;\r\n    width:70px;\r\n    height:16px;\r\n    margin: 0 auto;\r\n    margin-top:67px;\r\n    background:url(\'data:image/gif;base64,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\') no-repeat;\r\n}\r\n.sn-selectTree > .has-formlayer > .formlayer.formlayer-has-btns {\r\n    width: 100%;\r\n    padding: 0;\r\n}\r\n.formlayer.formlayer-has-btns > .formlayer-btns {\r\n    display: block;\r\n    width: 100%;\r\n    height: 36px;\r\n    text-align: center;\r\n    background: #f7f9fa;\r\n    border-top: 1px solid #eaeef1;\r\n}\r\n.formlayer.formlayer-has-btns > .formlayer-btns-check > label {\r\n    float: left;\r\n    font-size: 12px;\r\n    color: #333;\r\n    margin-left: 4px;\r\n    /*margin-top: 9px;*/\r\n    position: relative;\r\n}\r\n\r\n.formlayer.formlayer-has-btns > .formlayer-btns-check > label > input {\r\n    margin: 0;\r\n    width: 20px;\r\n    opacity: 0;\r\n    filter: alpha(opacity=0);\r\n}\r\n.formlayer.formlayer-has-btns > .formlayer-btns-check > label .chkallNode {\r\n    margin-left: 10px;\r\n    display: inline-block;\r\n    line-height: 37px;\r\n}\r\n.formlayer.formlayer-has-btns > .formlayer-btns-check > label .checkboxCover {\r\n    display: block;\r\n    width: 20px;\r\n    height: 20px;\r\n    position: absolute;\r\n    top: 50%;\r\n    margin-top: -11px;\r\n    background: url(\'data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAAAUCAYAAAB7wJiVAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyhpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNi1jMTM4IDc5LjE1OTgyNCwgMjAxNi8wOS8xNC0wMTowOTowMSAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIDIwMTcgKE1hY2ludG9zaCkiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6M0Y3NUU2RjRFNjNDMTFFNkI1RUZGNzAzNTY5NTMzNzAiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6M0Y3NUU2RjVFNjNDMTFFNkI1RUZGNzAzNTY5NTMzNzAiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDpDNjI4QzE3NUU2MEExMUU2QjVFRkY3MDM1Njk1MzM3MCIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDpDNjI4QzE3NkU2MEExMUU2QjVFRkY3MDM1Njk1MzM3MCIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PqhCFh8AAAKjSURBVHja7FlLaxNRFP4mM51J82je4qRJSKYqFnyBS7vQgoIL0QqlK0G0iKtu/QGu3Lh1Y3BbEcUWUTeKKHXhSoqg2JhOHtO4SaaRZJo2pPFOO5UQgjiWSabpfMwlk7ncL+eeb865595QzWYTFswDm+UCc4HZufn89ftF8pEkjdfJUSDt5qnRI69aH1L3FnfF17xzwlA+WZZ3xefz+QzhY1o6kvFImHfY7brYlFqNF/MrqiHhtq7k26k4f2bYoYtvQVL48cdiV/gGHU6epmldfI1Gg19TqobxtaYs3WKo0MZ0eit0O0+FNqYrfHqdp0IbYxiftYZYi7rxeJ+rmtq+SqWyfwR5uCjjwpMMHn1ZNaV9pWIR6R8plErF/hfk+dIvzLwpYCziwNTRIdPZVy6XIUl5OJ0ueL2+/hGkvtlE+3b2XbaKay8ljAY4PL0cg4Pp3dQ6bbbVNJXNiOA4DvFEAjabrT8EKa9v4tKzLK4T5683tif+qbCGyfkcou4BvJ6Mw8P1blqkjMVyOo1sNvNHGEVRkBGXMcCyEEYO4W/VGLPnqhCKlIoUhdlvJPwrddwdO4DJuRzcHI0XV2MIDdI9tY8itpELq7KM+kYdPM9DJGKoESEIAhiG6a8qy83aMDcRxY3jXnzIKzg7K5IUBsxPxCB42d6/MMTx8YQAvz+AarWCVGppK1ISwghYluvPspchYfLgfBi3T24vjDOn/TgW5ExjnxolkWgUgWBw63swFIL9HzfdDPYw7o/zuHJ4COdiTlPaFw4Pw+PxwOVy74+NIU1ytVnF2IkUPWK0C1JQajXdP6qN+dmhq7AgKbr5Pq4oXeNTK6L/qaKM5GtNWdPaqe1BnZwSabc6PJ/WTllNy6edspqKj7L+MTRZWW+5wFz4LcAAmKsJbn9UN6IAAAAASUVORK5CYII=\') no-repeat;\r\n    background-position: 0;\r\n    z-index: 0;\r\n}\r\n.formlayer.formlayer-has-btns > .formlayer-btns-check > label .checkboxCover.checked { background-position: -40px center; }\r\n.formlayer.formlayer-has-btns > .formlayer-btns-check > div {\r\n    float: right;\r\n    margin-right: 4px;\r\n}\r\n.formlayer.formlayer-has-btns > .formlayer-btns a{\r\n    display: inline-block;\r\n    height: 22px;\r\n    line-height: 22px;\r\n    font-size: 12px;\r\n    border: 1px solid #ddd;\r\n    border-radius: 3px; background: #fff;\r\n    text-decoration: none;\r\n    cursor: pointer;\r\n    white-space: nowrap;\r\n    outline: none;\r\n    color: #333;\r\n    padding: 0 10px;\r\n    margin-top: 6px;\r\n}\r\n.sn-selectTree>div>div.formlayer.formlayer-search {\r\n    padding:0;\r\n}\r\n.sn-selectTree .formlayer-searchOne{ \r\n    margin-left: -40px;\r\n    padding: 10px;\r\n    list-style-type:none;\r\n    font-size: 12px;\r\n}\r\n.formlayer-searchOne:hover{ \r\n    background-color: #e5f3fa;\r\n}\r\n.sn-selectTree .noneMes {\r\n    padding: 10px;\r\n    font-size: 12px;\r\n    color:#ccc;\r\n    font-style: italic;\r\n}\r\n.formlayer-search .hidden{\r\n    display: none;\r\n}\r\n\r\n.sn-selectTree .ztree li a.curSelectedNode{\r\n    background-color: transparent;\r\n}\r\n\r\n/* dialog search style */\r\n.ui-dialog-content .searchWrap {\r\n    border-bottom: 1px solid #d0d6d9;\r\n}\r\n.ui-dialog-content .searchWrap > input {\r\n    display: inline-block;\r\n    width: 300px;\r\n    height: 26px;\r\n    line-height: 22px;\r\n    padding: 3px;\r\n    padding-left: 10px;\r\n    margin: 3px 13px;\r\n    box-sizing: border-box;\r\n    outline: none;\r\n    border: 1px solid #d0d6d9;\r\n}\r\n.ui-dialog-content .searchWrap > input:hover, \r\n.ui-dialog-content .searchWrap > input.focus {\r\n    background-color: #ebfbff;\r\n    border: 1px solid #0085d0;\r\n}\r\n.ui-dialog-content .formlayer.formlayer-has-btns > .formlayer-btns {\r\n    height: auto;\r\n    padding: 9px 10px 10px 10px;\r\n    background: #ebf1f5;\r\n    border-top: 1px solid #d5dce5;\r\n    border-radius: 0 0 4px 4px;\r\n    box-sizing: border-box;\r\n}\r\n.ui-dialog-content .formlayer.formlayer-has-btns > .formlayer-btns a{\r\n    height: auto;\r\n    padding: 9px 51px;\r\n    _margin-left: 5px;\r\n    margin-bottom: 0;\r\n    font-size: 14px;\r\n    font-weight: normal;\r\n    line-height: 1.428571429;\r\n    text-align: center;\r\n    vertical-align: middle;\r\n    background-image: none;\r\n    border: 1px solid #d0d6d9;\r\n    border-radius: 3px;\r\n    color: #0085d0;\r\n}\r\n.ui-dialog-content .formlayer.formlayer-has-btns > .formlayer-btns a:hover, \r\n.ui-dialog-content .formlayer.formlayer-has-btns > .formlayer-btns a:focus {\r\n    background-color: #e5f3fa;\r\n}\r\n.ui-dialog-content .formlayer.formlayer-has-btns > .formlayer-btns a:active {\r\n    background-color: #eaeef1;\r\n}\r\n.ui-dialog-content .formlayer.formlayer-has-btns > .formlayer-btns a.confirm {\r\n    color: #ffffff;\r\n    background-color: #0085d0;\r\n    border-color: #0085d0;\r\n}\r\n.ui-dialog-content .formlayer.formlayer-has-btns > .formlayer-btns a.confirm:hover, \r\n.ui-dialog-content .formlayer.formlayer-has-btns > .formlayer-btns a.confirm:focus {\r\n    background-color: #1a91d4;\r\n    border-color: #1a91d4;\r\n}\r\n.ui-dialog-content .formlayer.formlayer-has-btns > .formlayer-btns a.confirm:active {\r\n    background-color: #0085d0;\r\n    border-color: #0085d0;\r\n}\r\n.ui-dialog-content .formlayer.formlayer-has-btns > .formlayer-btns a+a {\r\n    margin-left: 20px;\r\n}/*-------------------------------------\nzTree Style\n\nversion:\t3.5.19\nauthor:\t\tHunter.z\nemail:\t\thunter.z@263.net\nwebsite:\thttp://code.google.com/p/jquerytree/\n\n\n修改记录：\n\n1、根据中移在线UI规范，对ztree样式进行了修改，去掉了竖线和很多状态 20170111\n2、根据中移在线UI规范，增加了竖线、文件夹展开闭合状态、背景图base64处理等 20171010\n\n-------------------------------------*/\n\n.ztree li span.button, span.tmpzTreeMove_arrow { background-image: url(\"data:image/png;base64,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\"); }\n\n.ztree * {padding:0; margin:0; font-size:12px;}\n.ztree {margin:0; padding:5px; color:#333;}\n.ztree li{padding:0; margin:0; list-style:none; line-height:22px; text-align:left; white-space:nowrap; outline:0;}\n.ztree li ul{ margin:0; padding:0 0 0 18px;}\n.ztree li ul.line{ background: url(\"data:image/gif;base64,R0lGODlhCQAFAPABAM/W2QAAACH5BAUAAAEALAAAAAAJAAUAAAIIjB+AqGvtIioAOw==\") 0 0 repeat-y;}\n\n.ztree li a {padding:0 3px 0 0; margin:0; margin-top: 2px; cursor:pointer; height:17px; color:#333; background-color: transparent;\n\ttext-decoration:none; vertical-align:top; display: inline-block;}\n.ztree li a:hover {text-decoration:underline;}\n.ztree li a.curSelectedNode {padding-top:0px; background-color:#c4e4f5; color:black; height:19px; }\n.ztree li a.curSelectedNode_Edit {padding-top:0px; background-color:#c4e4f5; color:black; height:16px; }\n.ztree li a.tmpTargetNode_inner {padding-top:0px; background-color:#c4e4f5; color:white; height:16px; }\n.ztree li a.tmpTargetNode_prev {}\n.ztree li a.tmpTargetNode_next {}\n.ztree li a input.rename {height:14px; width:80px; padding:0; margin:0;\n\tfont-size:12px; border:1px #7EC4CC solid; *border:0px}\n.ztree li span {line-height:16px; margin-right:2px}\n.ztree li span.button {line-height:0; margin:0; width:16px; height:16px; display: inline-block; vertical-align:middle;\n\tborder:0 none; cursor: pointer;outline:none;\n\tbackground-color:transparent; background-repeat:no-repeat; background-attachment: scroll;\n\t/*background-image:url(\"../../../src/lib/zTree_v3/css/zTreeStyle/img/zTreeStandard.png\"); *background-image:url(\"../../../src/lib/zTree_v3/css/zTreeStyle/img/zTreeStandard.gif\")*/}\n\n.ztree li span.button.chk {width:16px; height:16px; margin:0 2px 0 0; cursor: auto;}\n.ztree li span.button.chk.checkbox_false_full {background-position:0 0;}\n.ztree li span.button.chk.checkbox_false_full_focus {background-position:0 -17px;}\n.ztree li span.button.chk.checkbox_false_part {background-position:0 0;}\n.ztree li span.button.chk.checkbox_false_part_focus {background-position:0 -17px;}\n.ztree li span.button.chk.checkbox_false_disable {background-position:0 -34px;}\n.ztree li span.button.chk.checkbox_true_full {background-position:-17px 0;}\n.ztree li span.button.chk.checkbox_true_full_focus {background-position:-17px 0;}\n.ztree li span.button.chk.checkbox_true_part {background-position:-17px 0;}\n.ztree li span.button.chk.checkbox_true_part_focus {background-position:-17px 0;}\n.ztree li span.button.chk.checkbox_true_disable {background-position:-17px -17px;}\n\n.ztree li span.button.chk.radio_false_full {background-position:-34px 0;}\n.ztree li span.button.chk.radio_false_full_focus {background-position:-34px -17px;}\n.ztree li span.button.chk.radio_false_part {background-position:-34px 0;}\n.ztree li span.button.chk.radio_false_part_focus {background-position:-34px -17px;}\n.ztree li span.button.chk.radio_false_disable {background-position:-34px -34px;}\n.ztree li span.button.chk.radio_true_full {background-position:-51px 0;}\n.ztree li span.button.chk.radio_true_full_focus {background-position:-51px 0;}\n.ztree li span.button.chk.radio_true_part {background-position:-51px 0;}\n.ztree li span.button.chk.radio_true_part_focus {background-position:-51px 0;}\n.ztree li span.button.chk.radio_true_disable {background-position:-51px -17px;}\n\n.ztree li span.button.switch {width:18px; height:18px;}\n.ztree li span.button.root_open{background-position:-106px -60px;}\n.ztree li span.button.root_close{background-position:-88px -60px;}\n.ztree li span.button.roots_open{background-position:-106px 1px;}\n.ztree li span.button.roots_close{background-position:-90px 1px;}\n.ztree li span.button.center_open{background-position:-106px -18px;}\n.ztree li span.button.center_close{background-position:-90px -18px;}\n.ztree li span.button.bottom_open{background-position:-106px -42px;}\n.ztree li span.button.bottom_close{background-position:-90px -42px;}\n.ztree li span.button.noline_open{background-position:-108px -78px;}\n.ztree li span.button.noline_close{background-position:-92px -78px;}\n.ztree li span.button.root_docu{ background:none; margin-right: 3px;}\n.ztree li span.button.roots_docu{background-position:-68px 1px;}\n.ztree li span.button.center_docu{background-position:-68px -18px;}\n.ztree li span.button.bottom_docu{background-position:-68px -38px;}\n.ztree li span.button.noline_docu{ background:none;}\n\n.ztree li span.button.ico_open{width:20px; margin-right:2px; background-position:-130px -15px; vertical-align:top; *vertical-align:middle}\n.ztree li span.button.ico_close{width:20px; margin-right:2px; background-position:-130px 1px; vertical-align:top; *vertical-align:middle}\n.ztree li span.button.ico_docu{margin-right:5px; background-position:-128px -32px; vertical-align:top; *vertical-align:middle}\n.ztree li span.button.edit {}\n.ztree li span.button.remove {}\n\n.ztree li span.button.ico_loading{margin-right:5px; background:url(\'data:image/gif;base64,R0lGODlhEAAQAKIGAMLY8YSx5HOm4Mjc88/g9Ofw+v///wAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQFCgAGACwAAAAAEAAQAAADMGi6RbUwGjKIXCAA016PgRBElAVlG/RdLOO0X9nK61W39qvqiwz5Ls/rRqrggsdkAgAh+QQFCgAGACwCAAAABwAFAAADD2hqELAmiFBIYY4MAutdCQAh+QQFCgAGACwGAAAABwAFAAADD1hU1kaDOKMYCGAGEeYFCQAh+QQFCgAGACwKAAIABQAHAAADEFhUZjSkKdZqBQG0IELDQAIAIfkEBQoABgAsCgAGAAUABwAAAxBoVlRKgyjmlAIBqCDCzUoCACH5BAUKAAYALAYACgAHAAUAAAMPaGpFtYYMAgJgLogA610JACH5BAUKAAYALAIACgAHAAUAAAMPCAHWFiI4o1ghZZJB5i0JACH5BAUKAAYALAAABgAFAAcAAAMQCAFmIaEp1motpDQySMNFAgA7\') no-repeat scroll 0 0 transparent; vertical-align:top; *vertical-align:middle}\n\nul.tmpTargetzTree {background-color:#FFE6B0; opacity:0.8; filter:alpha(opacity=80)}\n\nspan.tmpzTreeMove_arrow {width:16px; height:16px; display: inline-block; padding:0; margin:2px 0 0 1px; border:0 none; position:absolute;\n\tbackground-color:transparent; background-repeat:no-repeat; background-attachment: scroll;\n\tbackground-position:-110px -80px; /*background-image:url(\"../../../src/lib/zTree_v3/css/zTreeStyle/img/zTreeStandard.png\"); *background-image:url(\"../../../src/lib/zTree_v3/css/zTreeStyle/img/zTreeStandard.gif\")*/}\n\nul.ztree.zTreeDragUL {margin:0; padding:0; position:absolute; width:auto; height:auto;overflow:hidden; background-color:#cfcfcf; border:1px #00B83F dotted; opacity:0.8; filter:alpha(opacity=80)}\n.zTreeMask {z-index:10000; background-color:#cfcfcf; opacity:0.0; filter:alpha(opacity=0); position:absolute}\n\n/* level style*/\n/*.ztree li span.button.level0 {\n\tdisplay:none;\n}\n.ztree li ul.level0 {\n\tpadding:0;\n\tbackground:none;\n}*//*!\r\n * ui-dialog.css\r\n * Date: 2014-07-03\r\n * https://github.com/aui/artDialog\r\n * (c) 2009-2014 TangBin, http://www.planeArt.cn\r\n *\r\n * This is licensed under the GNU LGPL, version 2.1 or later.\r\n * For details, see: http://www.gnu.org/licenses/lgpl-2.1.html\r\n */\r\n.ui-dialog {\r\n    *zoom:1;\r\n    _float: left;\r\n    position: relative !important;\r\n    background-color: #FFF;\r\n    border: 1px solid #d5dce5;\r\n    border-radius: 6px;\r\n    outline: 0;\r\n    background-clip: padding-box;\r\n    \r\n    font-size: 14px;\r\n    line-height: 1.428571429;\r\n    color: #333;\r\n    opacity: 0;\r\n    -webkit-transform: scale(0);\r\n    transform: scale(0);\r\n    -webkit-transition: -webkit-transform .15s ease-in-out, opacity .15s ease-in-out;\r\n    transition: transform .15s ease-in-out, opacity .15s ease-in-out;\r\n}\r\n.ui-popup-show .ui-dialog {\r\n    opacity: 1;\r\n    -webkit-transform: scale(1);\r\n    transform: scale(1);\r\n}\r\n.ui-popup-focus .ui-dialog {\r\n    box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);\r\n}\r\n.ui-popup-modal .ui-dialog {\r\n    box-shadow: 0 0 8px rgba(0, 0, 0, 0.1), 0 0 256px rgba(255, 255, 255, .3);\r\n}\r\n.ui-dialog-grid {\r\n    width: auto;\r\n    margin: 0;\r\n    border: 0 none;\r\n    border-collapse:collapse;\r\n    border-spacing: 0;\r\n    background: transparent;\r\n}\r\n.ui-dialog-header,\r\n.ui-dialog-body,\r\n.ui-dialog-footer {\r\n    position: relative;\r\n    padding: 0;\r\n    border: 0 none;\r\n    text-align: left;\r\n    background: transparent;\r\n    overflow: hidden;\r\n}\r\n.ui-dialog-header {\r\n    white-space: nowrap;\r\n    border-bottom: 1px solid #d0d6d9;\r\n}\r\n.ui-dialog-close {\r\n    position: absolute;\r\n    _position: absolute;\r\n    top: 0;\r\n    right: 0;\r\n    _height: 26px;\r\n    padding: 10px 16px 14px 6px;\r\n    font-size: 28px;\r\n    line-height: 1;\r\n    color: #78909c;\r\n    text-shadow: 0 1px 0 #FFF;\r\n    cursor: pointer;\r\n    background: transparent;\r\n    _background: #FFF;\r\n    border: 0;\r\n    -webkit-appearance: none;\r\n}\r\n.ui-dialog-close:hover,\r\n.ui-dialog-close:focus {\r\n    color: #000000;\r\n    text-decoration: none;\r\n    cursor: pointer;\r\n    outline: 0;\r\n}\r\n.ui-dialog-title {\r\n    -moz-box-sizing: border-box;  \r\n    -webkit-box-sizing: border-box; \r\n    -o-box-sizing: border-box; \r\n    -ms-box-sizing: border-box; \r\n    box-sizing: border-box;\r\n    margin: 0;\r\n    color: #222;\r\n    font-size: 16px;\r\n    line-height: 1.428571429;\r\n    min-height: 16.428571429px;\r\n    padding: 14px 40px 14px 14px;\r\n    overflow:hidden; \r\n    white-space: nowrap;\r\n    text-overflow: ellipsis;\r\n    font-weight: bold;\r\n    cursor: move;\r\n}\r\n.ui-dialog-content {\r\n    display: inline-block;\r\n    position: relative;\r\n    vertical-align: middle;\r\n    *zoom: 1;\r\n    *display: inline;\r\n    text-align: left;\r\n    overflow: auto;\r\n}\r\n.ui-dialog-content-drag {\r\n    display: none;\r\n    position: absolute;\r\n    height: 100%;\r\n    width: 100%;\r\n    top: 0;\r\n    left: 0;\r\n    background:#ff0000; \r\n    opacity:0;\r\n    filter:alpha(opacity=0); \r\n}\r\n.ui-dialog-footer {\r\n    padding: 9px 10px 10px 10px;\r\n    text-align: center;\r\n    background: #ebf1f5; \r\n    border-top: 1px solid #d5dce5; \r\n    border-radius: 0 0 4px 4px;\r\n}\r\n.ui-dialog-statusbar {\r\n    float: left;\r\n    margin-right: 20px;\r\n    padding: 6px 0;\r\n    line-height: 1.428571429;\r\n    font-size: 14px;\r\n    color: #888;\r\n    white-space: nowrap;\r\n}\r\n.ui-dialog-statusbar label:hover {\r\n    color: #333;\r\n}\r\n.ui-dialog-statusbar input,\r\n.ui-dialog-statusbar .label {\r\n    vertical-align: middle;\r\n}\r\n.ui-dialog-button {\r\n    /*float: right;*/\r\n    white-space: nowrap;\r\n}\r\n.ui-dialog-footer button+button {\r\n    margin-bottom: 0;\r\n    margin-left: 20px;\r\n}\r\n.ui-dialog-footer button {\r\n    overflow:visible;\r\n    display: inline-block;\r\n    padding: 9px 51px;\r\n    _margin-left: 5px;\r\n    margin-bottom: 0;\r\n    font-size: 14px;\r\n    font-weight: normal;\r\n    line-height: 1.428571429;\r\n    text-align: center;\r\n    white-space: nowrap;\r\n    vertical-align: middle;\r\n    cursor: pointer;\r\n    background-image: none;\r\n    border: 1px solid transparent;\r\n    border-radius: 3px;\r\n}\r\n\r\n.ui-dialog-footer button:hover,\r\n.ui-dialog-footer button:focus {\r\n  color: #333333;\r\n  text-decoration: none;\r\n}\r\n\r\n.ui-dialog-footer button:active {\r\n  background-image: none;\r\n  outline: 0;\r\n}\r\n.ui-dialog-footer button[disabled] {\r\n  pointer-events: none;\r\n  cursor: not-allowed;\r\n  opacity: 0.65;\r\n  filter: alpha(opacity=65);\r\n}\r\n\r\n.ui-dialog-footer button {\r\n  color: #0085d0;\r\n  background-color: #ffffff;\r\n  border-color: #d0d6d9;\r\n  outline: none;\r\n}\r\n\r\n.ui-dialog-footer button:hover,\r\n.ui-dialog-footer button:focus {\r\n  color: #0085d0;\r\n  background-color: #e5f3fa;\r\n  border-color: #d0d6d9;\r\n}\r\n\r\n.ui-dialog-footer button:active {\r\n  color: #0085d0;\r\n  background-color: #eaeef1;\r\n  border-color: #d0d6d9;\r\n}\r\n\r\n.ui-dialog-footer button:active{\r\n  background-image: none;\r\n}\r\n\r\n.ui-dialog-footer button[disabled],\r\n.ui-dialog-footer button[disabled]:hover,\r\n.ui-dialog-footer button[disabled]:focus,\r\n.ui-dialog-footer button[disabled]:active {\r\n  background-color: #ffffff;\r\n  border-color: #cccccc;\r\n}\r\n\r\n.ui-dialog-footer button.ui-dialog-autofocus {\r\n  color: #ffffff;\r\n  background-color: #0085d0;\r\n  border-color: #0085d0;\r\n}\r\n\r\n.ui-dialog-footer button.ui-dialog-autofocus:hover,\r\n.ui-dialog-footer button.ui-dialog-autofocus:focus {\r\n  color: #ffffff;\r\n  background-color: #1a91d4;\r\n  border-color: #1a91d4;\r\n}\r\n\r\n.ui-dialog-footer button.ui-dialog-autofocus:active {\r\n  color: #ffffff;\r\n  background-color: #0085d0;\r\n  border-color: #0085d0;\r\n}\r\n.ui-popup-top-left .ui-dialog,\r\n.ui-popup-top .ui-dialog,\r\n.ui-popup-top-right .ui-dialog {\r\n    top: -8px;\r\n}\r\n.ui-popup-bottom-left .ui-dialog,\r\n.ui-popup-bottom .ui-dialog,\r\n.ui-popup-bottom-right .ui-dialog {\r\n    top: 8px;\r\n}\r\n.ui-popup-left-top .ui-dialog,\r\n.ui-popup-left .ui-dialog,\r\n.ui-popup-left-bottom .ui-dialog {\r\n    left: -8px;\r\n}\r\n.ui-popup-right-top .ui-dialog,\r\n.ui-popup-right .ui-dialog,\r\n.ui-popup-right-bottom .ui-dialog {\r\n    left: 8px;\r\n}\r\n\r\n.ui-dialog-arrow-a,\r\n.ui-dialog-arrow-b {\r\n    position: absolute;\r\n    display: none;\r\n    width: 0;\r\n    height: 0;\r\n    overflow:hidden;\r\n    _color:#FF3FFF;\r\n    _filter:chroma(color=#FF3FFF);\r\n    border:8px dashed transparent;\r\n}\r\n.ui-popup-follow .ui-dialog-arrow-a,\r\n.ui-popup-follow .ui-dialog-arrow-b{\r\n    display: block;\r\n}\r\n.ui-popup-follow .ui-dialog-title{\r\n    cursor:initial;\r\n}\r\n.ui-popup-top-left .ui-dialog-arrow-a,\r\n.ui-popup-top .ui-dialog-arrow-a,\r\n.ui-popup-top-right .ui-dialog-arrow-a {\r\n    bottom: -16px;\r\n    border-top:8px solid #d5dce5;\r\n}\r\n.ui-popup-top-left .ui-dialog-arrow-b,\r\n.ui-popup-top .ui-dialog-arrow-b,\r\n.ui-popup-top-right .ui-dialog-arrow-b {\r\n    bottom: -15px;\r\n    border-top:8px solid #fff;\r\n}\r\n.ui-popup-top-left .ui-dialog-arrow-a,\r\n.ui-popup-top-left .ui-dialog-arrow-b  {\r\n    left: 15px;\r\n}\r\n.ui-popup-top .ui-dialog-arrow-a,\r\n.ui-popup-top .ui-dialog-arrow-b  {\r\n    left: 50%;\r\n    margin-left: -8px;\r\n}\r\n.ui-popup-top-right .ui-dialog-arrow-a,\r\n.ui-popup-top-right .ui-dialog-arrow-b {\r\n    right: 15px;\r\n}\r\n.ui-popup-bottom-left .ui-dialog-arrow-a,\r\n.ui-popup-bottom .ui-dialog-arrow-a,\r\n.ui-popup-bottom-right .ui-dialog-arrow-a {\r\n    top: -16px;\r\n    border-bottom:8px solid #d5dce5;\r\n}\r\n.ui-popup-bottom-left .ui-dialog-arrow-b,\r\n.ui-popup-bottom .ui-dialog-arrow-b,\r\n.ui-popup-bottom-right .ui-dialog-arrow-b {\r\n    top: -15px;\r\n    border-bottom:8px solid #fff;\r\n}\r\n.ui-popup-bottom-left .ui-dialog-arrow-a,\r\n.ui-popup-bottom-left .ui-dialog-arrow-b {\r\n    left: 15px;\r\n}\r\n.ui-popup-bottom .ui-dialog-arrow-a,\r\n.ui-popup-bottom .ui-dialog-arrow-b {\r\n    margin-left: -8px;\r\n    left: 50%;\r\n}\r\n.ui-popup-bottom-right .ui-dialog-arrow-a,\r\n.ui-popup-bottom-right .ui-dialog-arrow-b {\r\n    right: 15px;\r\n}\r\n.ui-popup-left-top .ui-dialog-arrow-a,\r\n.ui-popup-left .ui-dialog-arrow-a,\r\n.ui-popup-left-bottom .ui-dialog-arrow-a {\r\n    right: -16px;\r\n    border-left:8px solid #d5dce5;\r\n}\r\n.ui-popup-left-top .ui-dialog-arrow-b,\r\n.ui-popup-left .ui-dialog-arrow-b,\r\n.ui-popup-left-bottom .ui-dialog-arrow-b {\r\n    right: -15px;\r\n    border-left:8px solid #fff;\r\n}\r\n.ui-popup-left-top .ui-dialog-arrow-a,\r\n.ui-popup-left-top .ui-dialog-arrow-b {\r\n    top: 15px;\r\n}\r\n.ui-popup-left .ui-dialog-arrow-a,\r\n.ui-popup-left .ui-dialog-arrow-b {\r\n    margin-top: -8px;\r\n    top: 50%;\r\n}\r\n.ui-popup-left-bottom .ui-dialog-arrow-a,\r\n.ui-popup-left-bottom .ui-dialog-arrow-b {\r\n    bottom: 15px;\r\n}\r\n.ui-popup-right-top .ui-dialog-arrow-a,\r\n.ui-popup-right .ui-dialog-arrow-a,\r\n.ui-popup-right-bottom .ui-dialog-arrow-a {\r\n    left: -16px;\r\n    border-right:8px solid #d5dce5;\r\n}\r\n.ui-popup-right-top .ui-dialog-arrow-b,\r\n.ui-popup-right .ui-dialog-arrow-b,\r\n.ui-popup-right-bottom .ui-dialog-arrow-b {\r\n    left: -15px;\r\n    border-right:8px solid #fff;\r\n}\r\n.ui-popup-right-top .ui-dialog-arrow-a,\r\n.ui-popup-right-top .ui-dialog-arrow-b {\r\n    top: 15px;\r\n}\r\n.ui-popup-right .ui-dialog-arrow-a,\r\n.ui-popup-right .ui-dialog-arrow-b {\r\n    margin-top: -8px;\r\n    top: 50%;\r\n}\r\n.ui-popup-right-bottom .ui-dialog-arrow-a,\r\n.ui-popup-right-bottom .ui-dialog-arrow-b {\r\n    bottom: 15px;\r\n}\r\n\r\n\r\n@-webkit-keyframes ui-dialog-loading {\r\n    0% {\r\n        -webkit-transform: rotate(0deg);\r\n    }\r\n    100% {\r\n        -webkit-transform: rotate(360deg);\r\n    }\r\n}\r\n@keyframes ui-dialog-loading {\r\n    0% {\r\n        transform: rotate(0deg);\r\n    }\r\n    100% {\r\n        transform: rotate(360deg);\r\n    }\r\n}\r\n\r\n.ui-dialog-loading {\r\n    vertical-align: middle;\r\n    position: relative;\r\n    display: block;\r\n    *zoom: 1;\r\n    *display: inline;\r\n    overflow: hidden;\r\n    width: 32px;\r\n    height: 32px;\r\n    top: 50%;\r\n    margin: -16px auto 0 auto;\r\n    font-size: 0;\r\n    text-indent: -999em;\r\n    color: #666;\r\n}\r\n.ui-dialog-loading {\r\n    width: 100%\\9;\r\n    text-indent: 0\\9;\r\n    line-height: 32px\\9;\r\n    text-align: center\\9;\r\n    font-size: 12px\\9;\r\n}\r\n\r\n.ui-dialog-loading::after {\r\n    position: absolute;\r\n    content: \'\';\r\n    width: 3px;\r\n    height: 3px;\r\n    margin: 14.5px 0 0 14.5px;\r\n    border-radius: 100%;\r\n    box-shadow: 0 -10px 0 1px #ccc, 10px 0px #ccc, 0 10px #ccc, -10px 0 #ccc, -7px -7px 0 0.5px #ccc, 7px -7px 0 1.5px #ccc, 7px 7px #ccc, -7px 7px #ccc;\r\n    -webkit-transform: rotate(360deg);\r\n    -webkit-animation: ui-dialog-loading 1.5s infinite linear;\r\n    transform: rotate(360deg);\r\n    animation: ui-dialog-loading 1.5s infinite linear;\r\n    display: none\\9;\r\n}\r\n.ui-dialog-tip-error .ui-dialog-content{\r\n    background-color: #ffe4e2;\r\n    color: #F08D89;\r\n    border-radius:5px;\r\n}\r\n.ui-dialog-tip-error .ui-dialog{\r\n    border: 2px solid #ff8a85;\r\n}\r\n.ui-dialog-tip-success .ui-dialog-content{\r\n    background-color: #f0f6df;\r\n    color: #8fc11d;\r\n    border-radius:5px;\r\n}\r\n.ui-dialog-tip-success .ui-dialog{\r\n    border: 2px solid #b1d361;\r\n}\r\n.ui-dialog-tip-icon{\r\n    position: absolute;\r\n    width: 38px;\r\n    top: 0;\r\n    bottom: 0;\r\n    left: 0;\r\n    background-position: center right;\r\n    background-repeat: no-repeat;\r\n}\r\n.ui-dialog-tip-text{\r\n    margin-left: 48px;\r\n    padding: 15px 20px 15px 0;\r\n    font-size: 14px;\r\n}\r\n.ui-dialog-tip-error .ui-dialog-tip-icon{\r\n    background-image: url(\'data:img/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAa5JREFUeNqslr1LQmEUxs+9OdqWHxXoXi5WtPsPRC1p0docDUG0NFZDhFNLa2EtQYRDQzZLo61l0qCWRtQmXHtO90gk977ve9MHfni4Hp/j+3mu1c0ukkIJsAoyYApEQAe8gGdwB87Bk5+B5VOAjffBMhghtRwpsg1q/V/aHj9YABWwYmDe8+DcB/lUFtgAl2CUgisMTsGmX4EsOPIZlakscChefwrwnJ9IwqCyxIs9KSQP92SI/orGiOLjblyvEzXruuk64DXhESRBTvu/0rNEO7su6RmTkfAOTNpirp/3Vts7Vu+unC2HSK/Wm3esVoYLpIxS2y3vWK0UL/KYUerHOy6Jzm9spkgo0AbkqbGCHRMuwBM6aZRdvA56Ul5DcoeYFbgpBj10FR7vrVFqfIIof+zCsZlKtly1jjZ1bp4oFnfhWK+fa5wLVMGFNv2+TNRouHCsF3tWew0nIWsRpuHoC0xzA+rtOe5E66A7BPOueNX6+0FBmoUzoPmWeHl2tDxYAp//nJY1aTjKnnwl91PBcDSO5PKcn5m+VXi9trBBVJ43ZVOUZLc8+hl8CzAAn81phfEdoTYAAAAASUVORK5CYII=\');\r\n}\r\n.ui-dialog-tip-success .ui-dialog-tip-icon{\r\n    background-image: url(\'data:img/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAdBJREFUeNpi7D8oy4AHyAFxFBA7ArEWEIsC8W8gfgLED4H4ABCvBOL7uAxgxGEByOAOIA4DYmYG/OAf1JIKIH6ELsmERYMfEF8B4kgiDIeZAVJ7FUrjtSAfiNcDMS8D6YAHiJcCcSEuC8KBuB+Hr4gFjEDcCzULxQJQmM+BKqAUMELNkkO2oB3qRWoBkFmdMAvkgTiCgfoAlALlmaCGkxXujIzMDFbypQycrMK4UlcEEzQTkWW4h/oEBjP5XAYlIWdcyhxBFuiQa7i6mD/DkXvtDFdfrsKlVAdkgQjOmGKTZJDmt8Br+Jkn0/G5RRRv2DuoNDIE6i5kkBewJcdweES8wSW593Ylw4dvDxh8deYALbEj2XAgeA0q7HYCGW64VIBSSLDuMgYRHg1wHiLBcBDYCfLBPnwqvv9+y7D2chTDmy83SDUcBPaDfKAAZNwllBdYmDgY/vz7QYrhoGJcGWToAyBeRUg1iYYzQM18AHN1ORB/oWIx8QVqJjxYQDVRKhD/p4Lh/6FmPUKvD1ZAK4t/FBpeCjULa402EYgDgfgzmcESA61w8NbJm6Dl0woiffMPqlYbiJcR26rA1mwBGSAGFX8FreT3Q1PLPVwGAAQYAPvzfadv2PlnAAAAAElFTkSuQmCC\');\r\n}\r\n.ui-dialog-confirm-icon{\r\n    position: absolute;\r\n    width: 84px;\r\n    top: 0;\r\n    bottom: 0;\r\n    left: 0;\r\n    background-position: center right;\r\n    background-repeat: no-repeat;\r\n    background-image: url(\'data:img/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAABIFJREFUeNrUWs1LVFEUv449LWfG79QMkiAxaWFaULSzVatqURRl0SopEIpcVbQwoqAWgVDYIsnMiIqiPyB3UdDnxj7sgyIETS360ObN6HSOc95978w8Hcd3RqcDP+Z9zb3n9+75uve+rOhtJSFlgEbARsBqwErAUoCf7v8BfAN8ArwBPAb0Aoa8dpzlgUAJYD9gD2AdtpXi/6OAZ4AeQBdgZL4ILAO0Apodb9irjAGuAs4CBtJFYBHgKOAUIJBwNxewBGDQkz7HmOC7ngREAGHAOCDk2sdvQBvgIj0pRqAacAtQz67mAPJJ8bkIEvkJMBPuvATsBfQla8I3i262AZ4y5Q1y23IPyiv6bzm1ZbA7awFPANu9EjgIuEvvOSbFgAoyGSnJpTZL2FU00zukw4x2PZ0cAlxiTxYLKx4vedTPCPmLUtmADvq9nMoIbAW0M1svTbPy8X3lsKvtpNOsCNQCbhDrWEPlCTaaXjGoT5tENulUm4wA/vWmDpOW2SyUFDMjD5BuxkwEjgDqWK41FpCAkeDYdZSLXPNAJeCtfvsl5FSZIGOs0MBkV2NlbOcIHNfKGxmkvBWdDGZKJ+JHAP3+i05LZd4jzpoDK9VfM1ZL5BpR1Xftk7cGQ6x2xRy+AjBsjUCTVj5HJlwW5k3q4yL/pEyyy2E5vMlpQk36Vr5QAAlGbAKOY0/CddtrEUCDaWDcBKQgYCtdGBAiwHXDOUglEtisC1/BTFsYmHA9FjEl8l+cBSKBDdJvP2b3DgJ+QQJcx/U+msPaiUNI8gOmw5xM2eRmSw0SWDWr2jRFKQ3aSpcEBQlwHat9VDbZJZOScuKw67Fn4TqWI4EgcwsxJ3b4Q0AwK3Mdgz6VJnESKPALNhxlZyYS+DXNTW8E/O5khAn8QgKD+lQw2hUFHVlZkgCvSr4jgff6NJImE5IkwHXsx6CEa5Vbpk4xWCwW8jWI1x96Pso7Fw9ob320/mIXqZkuXMdnSKBXu0boPyAQYu780HLi59Kj8OiVUpsOV00Bj9Pw9lHnASsPdOvLP2X6au2oUoM/sqeAxyLCdetxTmi6NT9T3pSiUqZjsrHochIYBnTa0dV7f+cPflZlhROqoiiiLsCxZ+E6dZLOMyyr4KKSP0McFzeoRpMvq+CFNn02miFRyWTKo5xWjl2c+A0Og/JCva69S9XCrc6FyVDs7PuCZpA6nflc/rJL+3skgf38yihTHovO3fG52K2c7gfs06WdSZkiPM9vfpBFnQla+nkX/+h084EHgBZmh8Pz5BNWX3wW2kI6qdkSQMEdkWY9EjiUQxQR0iVj9OYj7M03q2l2Z5IRQLkC2MFy4Ch1IjkaIWqTb3VjuNxJOqi5EkC5j+svFAHsYR6iTr3UTuPUxlCCybyiaHMvadmewkY3Lq3iDv1J5bYEJrPRjXfOYCJXbrvHHglYshxwTMW2PyU/NcDy4Bzga0oTJw8fe5RSuMVV4gY1t489sCTGzbvrVm2T8sxP6HMbXBxrJLvFnUTrc5uAwyGtz21eU7bvZQsKc5R/AgwAiGkWNMMsevgAAAAASUVORK5CYII=\');\r\n}\r\n.ui-dialog-confirm-text{\r\n    font-size: 12px;\r\n    margin-left: 104px;\r\n    padding: 62px 20px 50px 0;\r\n    color: #666666;\r\n}\r\n.ui-dialog-confirm-text-t{\r\n    font-size: 14px;\r\n    color: #000000;\r\n    line-height: 1;\r\n    margin-bottom: 10px;\r\n}');

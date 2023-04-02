@@ -1,0 +1,213 @@
+﻿/**
+ * AJAX请求封装：统一处理token等
+ */
+define(['Util', 'assets/common/cookie', './constans','./encrypt', 'dialog'],
+	function(Util, Cookie, constans, Encrypt, Dialog) {
+		var server = constans.server;
+		/**
+		 * 向请求Url中追加token
+		 * @param {Object} url
+		 */
+		var appendToken = function(url, appendToken) {
+           
+            var href = window.location.href;
+             //判断是否是非首页刷新，非首页刷新跳转到首页
+            //存在#且不是首页带的hash
+            if(href.indexOf('#')!=-1&&href.indexOf('dXJsPWpzL29yZGVycXVlcnkvb3JkZXJ2aWV3')==-1){
+                if($('#refresh').val()!='true'){
+                    window.location.href = 'frame.html';
+                    return;
+                }
+            }
+			var userBean = Cookie.get('userbean');
+			if(userBean) {
+				userBean = JSON.parse(userBean);
+			} else {
+				// 没有本地Cookie，转到登录页面;
+				window.location.href = 'index.html';
+				return false;
+			}
+            if(appendToken) { // 导出操作通过a标签发起非ajax的http请求，只能拼接token
+                var token = Encrypt.dencrypt(userBean.token,'zznode').replace(/"/g,'');
+				if(url.indexOf('?') == -1) {
+					return url + "?token=" + token;
+				} else {
+					return url + "&token=" + token;
+				}
+			}
+			return url;
+        };
+        var downloadFile = function (url,method) {
+            var _method = method?method:'post'
+            var userBean = Cookie.get('userbean');
+            if (userBean) {
+                userBean = JSON.parse(userBean);
+            } else {
+                // 没有本地Cookie，转到登录页面;
+                window.location.href = 'index.html';
+                return false;
+            }
+            var token = Encrypt.dencrypt(userBean.token, 'zznode').replace(/"/g, '');
+            var form = $("<form>");
+            $('body').append(form);
+            form.attr('style', 'display:none');
+            form.attr('target', '');
+            form.attr('method', _method);
+            form.attr('action', url);//下载文件的请求路径
+            var input = $('<input>');
+            input.attr('type', 'hidden');
+            input.attr('name', 'token');
+            input.attr('value', token);
+            form.append(input);
+            form.submit();
+            form.remove();
+        }
+		/**
+		 * 发起AJAX请求
+		 * @param {Object} url
+		 * @param {Object} type
+		 * @param {Object} param
+		 * @param {Object} callback
+		 */
+		var ajaxJson = function(url, type, param, callback) {
+			if(typeof param == 'function') {
+				callback = param;
+				param = {};
+			}
+			var _callback = function(d) {
+                // console.log(d);
+				// token验证不通过
+				if(d.returnCode == 'AUTH3000') {
+					window.location.href = 'index.html';
+				} else {
+					callback(d);
+				}
+			}
+			var urlWithToken = appendToken(url);
+			var userbean = Cookie.get('userbean');
+			// if(userbean) {
+			// 	userbean = JSON.parse(userbean);
+			// 	if(Util.ajax.setHeader) {
+			// 		Util.ajax.setHeader({"X-OPID": userbean.userName});
+			// 	}
+			// }
+			if(type == 'post' || type == 'POST') {
+				return Util.ajax.postJson(urlWithToken, param, _callback);
+			} else if(type == 'put' || type == 'PUT') {
+				return Util.ajax.putJson(urlWithToken, param, _callback);
+			} else if(type == 'delete' || type == 'DELETE') {
+				return Util.ajax.deleteJson(urlWithToken, param, _callback);
+			} else {
+				return Util.ajax.getJson(urlWithToken, param, _callback);
+			}
+		};
+
+		/**
+		 * Get请求后直接渲染到某元素下
+		 * @param {Object} url
+		 * @param {Object} option
+		 * @param {Object} config
+		 * @param {Object} callback
+		 */
+		var getRender = function(url, option, config, callback) {
+			ajaxJson(url, 'get', option, function(data) {
+				if(data.returnCode != "0"){
+					propMessage(data.returnMessage, true);
+					return;
+				}
+                data.mtnGroupId=option.mtnGroupId;
+				data.regressType=option.regressType;
+                if(option){
+                    data.option = option;
+                }
+				config.el.html(Util.hdb.compile(config.tpl)(data));
+				if(callback) {
+					callback(data, config);
+				}
+			});
+		};
+
+		//处理数据后在渲染节点
+		var getRenderProcessed = function(url, option, config, callback) {
+			ajaxJson(url, 'get', option, function(data) {
+                if(option){
+                    data.option = option;
+                }
+				if(callback) {
+					callback(data, config);
+				}
+			});
+		};
+
+		var getStarRender = function(url, searchdata, config, callback) {
+			ajaxJson(url, 'get', searchdata, function(data) {
+				//  console.log(JSON.stringify(option));
+				if(searchdata.statisticsQuarter=="第一季度"){
+					data.month=['01','02','03'];
+				}
+				if(searchdata.statisticsQuarter=="第二季度"){
+					data.month=['04','05','06'];
+				}
+				if(searchdata.statisticsQuarter=="第三季度"){
+					data.month=['07','08','09'];
+				}
+				if(searchdata.statisticsQuarter=="第四季度"){
+					data.month=['10','11','12'];
+				}
+				data.bean=data.bean?data.bean:{};
+				// console.log(data.bean);
+				var orderBack=data.bean.orderBack?data.bean.orderBack:0.00;
+				var orderRealy=data.bean.orderRealy?data.bean.orderRealy:0.00;
+				var orderResMass=data.bean.orderResMass?data.bean.orderResMass:0.00;
+				var userStatisFaction=parseFloat(data.bean.userSatisFaction?data.bean.userSatisFaction:0.00);
+			data.bean.totalScore=orderBack+orderRealy+orderResMass-userStatisFaction;
+			data.bean.reasonTotal1=(data.bean.reason1+data.bean.reason2+data.bean.reason3)?(data.bean.reason1+data.bean.reason2+data.bean.reason3):0.00;
+			data.bean.reasonTotal2=(data.bean.reason4+data.bean.reason5+data.bean.reason6)?(data.bean.reason4+data.bean.reason5+data.bean.reason6):0.00;
+		
+				// console.log(data);
+				config.el.html(Util.hdb.compile(config.tpl)(data));
+				if(callback) {
+					callback(data, config);
+				}
+			});
+		};
+		/**
+		 * Get请求后追加到某元素下
+		 * @param {Object} url
+		 * @param {Object} option
+		 * @param {Object} tpl
+		 * @param {Object} el
+		 * @param {Object} callback
+		 */
+		var getAppend = function(url, option, tpl, el, callback) {
+			ajaxJson(url, 'get', option, function(data) {
+				config.el.append(Util.hdb.compile(config.tpl)(data));
+				if(callback) {
+					callback(data, config);
+				}
+			});
+		};
+
+		/**
+		 * 弹出消息确认框
+		 * @param {Object} message
+		 */
+        var propMessage = function (message) {
+            new Dialog({
+                mode: 'confirm',
+                cancelDisplay: false,
+                content: message,
+            });
+        };
+
+		return {
+			server: server,
+			appendToken: appendToken,
+			ajaxJson: ajaxJson,
+			getRender: getRender,
+			getRenderProcessed: getRenderProcessed,
+			getStarRender: getStarRender,
+            getAppend: getAppend,
+            downloadFile:downloadFile
+		};
+	});

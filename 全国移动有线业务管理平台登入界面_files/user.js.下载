@@ -1,0 +1,516 @@
+define([
+		'./ajax',
+		'dialog',
+		'groupSearchForm',
+		'validator',
+		'./transSelectedData',
+		'./utils',
+		'assets/common/cookie',
+		'Util',
+        'encrypt',
+        './encrypt',
+		'selectTree',
+		'lib/requirejs/css.min!assets/css/comprehensiveSupport.css'
+	],
+	function(ajax, Dialog, GroupSearchForm, Validator, transSelectedDataAPI, MyUtils, Cookie, 
+		Util, encrypt, myEncrypt, SelectTree) {
+		var url = ajax.server;
+		var domainUrl = ajax.appendToken(url + "/webUsers/domain/init");
+		var userItemUrl = ajax.appendToken(url + "/webUsers");
+		var auditTypeArr = [{name: '网络', value: 1}, {name: '建设', value: 2}, {name: '用户', value: 3}, {name: '前台',value: 4}, {name: '其他', value: 5}];
+		var dialog;
+		var selectTree_value;//班组树结构
+
+		//添加用户
+		var addWebUser = function(data) {
+            var pwdEncrypt = myEncrypt.encryptAlg(data.loginPassword,'ngwlanfix-zznode');
+			data.loginPassword = encrypt.MD5(pwdEncrypt).toString();
+			data.loginPassword2 = data.loginPassword;
+            data.domainCodes = data.domainCodes.val;
+		
+			ajax.ajaxJson(url + "/webUsers", 'post', data, function(d) {
+				if(d && d.returnCode == 0) {
+					MyUtils.propMessage("新增成功", true);
+					list.search();
+				} else {
+					MyUtils.propMessage(d.returnMessage, true);
+				}
+			});
+		};
+		//获取用户信息(或者弹出修改)
+		var getWebUser = function(userId, edit, callback) {
+			ajax.ajaxJson(url + "/webUsers/" + userId, {}, function(d) {
+				console.log(d);
+				if(d && d.returnCode == 0) {
+					if(edit == 'edit') {
+						propUserForm('edit', d.bean);
+					} else if(typeof edit == 'function') {
+						edit(d.bean);
+					}
+				} else {
+					MyUtils.propMessage("获取用户信息失败", true);
+				}
+			});
+		};
+		//修改用户信息
+		var modifyWebUser = function(data, user) {
+			data.userId = user.userId;
+			data.loginAccount = user.loginAccount;
+			data.loginPassword = user.loginPassword;
+			data.domainCodes = data.domainCodes.val;
+			
+			ajax.ajaxJson(url + "/webUsers/", 'put', data, function(d) {
+				if(d && d.returnCode == 0) {
+					MyUtils.propMessage("修改成功", true);
+					list.search({nameAcct: $('#userSearchForm [name="nameAcct"]').val()},list.pageIndex);
+				} else {
+					MyUtils.propMessage(d.returnMessage, true);
+				}
+			});
+		};
+		//删除用户信息
+		var removeWebUser = function(data) {
+			var ids = [];
+			var len = data.length;
+			if(len==0){
+				MyUtils.propMessage("请选择要删除的数据",true);
+			}else{
+			for(var i = 0; i < len; i++) {
+				ids.push(data[i].userId);
+			}
+			ajax.ajaxJson(url + "/webUsers?ids=" + ids.join(), 'delete', function(d) {
+				if(d && d.returnCode == 0) {
+					MyUtils.propMessage("删除成功", true);
+					list.search();
+				} else {
+					MyUtils.propMessage(d.returnMessage, true);
+				}
+			})
+			}
+		};
+		//解锁用户
+		var unlockWebUser = function(data, dom) {
+			ajax.ajaxJson(url + "/webUsers/unlock/" + data, 'put', function(d) {
+				MyUtils.propMessage("解锁成功", true);
+				list.search({nameAcct: $('#userSearchForm [name="nameAcct"]').val()},list.pageIndex);
+			})
+		}
+		//锁定用户
+		var lockWebUser = function(data) {
+			ajax.ajaxJson(url + "/webUsers/handleLock/" + data, 'post', {}, function(d) {
+				MyUtils.propMessage("锁定成功", true);
+				list.search({nameAcct: $('#userSearchForm [name="nameAcct"]').val()},list.pageIndex);
+			})
+		}
+		//重置密码
+		var resetPassword = function(data) {
+			ajax.ajaxJson(url + "/webUsers/resetPassword/" + data, 'put', function(d) {
+				if(d.returnCode == 0) {
+					MyUtils.propMessage(d.bean, true);
+				} else {
+					MyUtils.propMessage(d.returnMessage, true);
+				}
+			})
+        };
+		//修改密码
+		var modifyPassword = function(data, loginAccount, password) {
+            var pwdEncrypt = myEncrypt.encryptAlg(password, 'ngwlanfix-zznode');
+			ajax.ajaxJson(url + "/webUsers/resetPassword/" + data + "/" + encrypt.MD5(pwdEncrypt).toString(), 'put', function(d) {
+				if(d.returnCode == 0) {
+					MyUtils.propMessage("密码已成功修改", true);
+				} else {
+					MyUtils.propMessage(d.returnMessage, true);
+				}
+			})
+        };
+		//注销
+		var logout = function(loginName) {
+			var loading = MyUtils.getLoading( $("body"), "300", "注销中...");
+			ajax.ajaxJson(url + "/tokens?loginName=" + loginName, 'delete', function(d) {
+				loading.destroy();
+				if(d && d.returnCode == 0) {
+					Cookie.set('userbean', '');
+					window.location.href = "index.html";;
+				} else {
+					MyUtils.propMessage(d.returnMessage, true);
+				}
+			});
+		};
+		/**
+		 * 弹出新增用户或者修改用户
+		 */
+		var propUserForm = function(type, user) {
+			new Dialog({
+				id: 'comfirm',
+				mode: 'normal',
+				width: 800,
+				height: 400,
+				skin: 'dialogSkin',
+				fixed: true,
+				quickClose: false,
+				padding: '0',
+				modal: true,
+				title: type == 'add' ? '新增用户' : '修改用户',
+				content: '<div id="userValidatorContainer"><a>aaa</a></div>',
+				ok: function() {
+					//添加校验
+					var formValidator = new Validator({
+						el: $('#userValidatorContainer'),
+						dialog: true, //是否弹出验证结果对话框
+						pattern: {
+							// num3: "^[0-9]{3}$",
+							// five: "^[5-9]{3}$",
+                            // match: '^' + $('input[name="loginPassword"]').val() + '$',
+                            // passwordCheck: '^(?=.{8,})(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*\\W).*$'
+						},
+						rules: {
+							loginAccount: "required",
+							loginPassword: "required|min-8|",
+							loginPassword2: "required",
+							userRole: "required|number",
+                            userMobile: "required|mobile",
+                            userName:"required",
+                            domainCodes:'required',
+                            sensitiveRight: "required|number",
+						},
+						messages: {
+							loginAccount: {
+								required: "请填写用户账号"
+							},
+							loginPassword: {
+								required: "请填写密码",
+                                min: "输入的密码位数不能少于8位",
+                                //passwordCheck:"密码强度不够，必须8位及以上且包含大小写字母、数字、特殊字符"
+							},
+							loginPassword2: {
+								required: "请填写密码",
+								//match: "输入的密码不一致"
+							},
+							userRole: {
+								required: "请选择用户角色类型",
+								number: "请选择用户角色类型"
+							},
+							userMobile: {
+								required: "请填写手机号码",
+							 	mobile: "手机号码不正确"
+                            },
+                            userName:{
+                                required: "请填用户名",
+                            },
+                            domainCodes:{
+                                required:"请选择管理区域"
+                            },
+                            sensitiveRight: {
+                            	required:"请选择敏感信息权限",
+                            	number: "请选择敏感信息权限"
+                            }
+						}
+					});
+					var data = groupSearchForm.getData();
+					if(type == 'add'){
+						var strongRegex = new RegExp("^(?=.{8,})(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*\\W).*$", "g");
+						if(!strongRegex.test(data.loginPassword)) { 
+							MyUtils.propMessage("密码强度必须8位及以上且包含大小写字母、数字、特殊字符", true);
+							return false;
+						}
+						if(data.loginPassword!=data.loginPassword2){
+							MyUtils.propMessage("输入的密码不一致", true);
+							return false;
+						}
+					} 
+					if(formValidator.form()) {
+						data = transSelectedDataAPI.change('#userValidatorContainer', groupSearchForm.getData())
+						data.auditTypes = data.auditTypes.val;
+						if(data.userRole == 15 && data.auditTypes == ""){
+							MyUtils.propMessage("请选择审核类型", true);
+							return false;
+						}
+						if(data.userRole != 15){
+							data.auditTypes = "";
+						}
+						if(data.userRole == 12 ){
+							data.groupIds = selectTree_value;
+						} 
+						if( type == 'edit') {
+							return modifyWebUser(data, user);
+						}
+						return addWebUser(data);
+					} else {
+						return false;
+					}
+				},
+				okValue: '确定',
+				cancel: function() {},
+				cancelValue: '取消',
+				cancelDisplay: true
+			});
+			
+			$('.ui-dialog-content').removeClass('ui-dialog-content');
+			var groupSearchForm = new GroupSearchForm({
+				el: "#userValidatorContainer",
+				column: 2,
+				items: [{
+						element: 'input',
+						label: '用户账号：<i style="color:red;padding:2px;">*</i>',
+						name: 'loginAccount',
+						config: {
+							attr: {
+								disabled: type == 'add' ? false : true,
+								value: user ? user.loginAccount : ""
+							}
+						}
+					}, {
+						element: 'input',
+						label: '用户姓名：<i style="color:red;padding:2px;">*</i>',
+						name: 'userName',
+						config: {
+							attr: {
+								value: user ? user.userName : ""
+							}
+						}
+					},
+					type == 'add' ? {
+						element: 'input',
+						label: '用户密码：<i style="color:red;padding:2px;">*</i>',
+						name: 'loginPassword',
+						config: {
+							attr: {
+								type: 'password'
+							}
+						}
+					} : {},
+					type == 'add' ? {
+						element: 'input',
+						label: '请再输一次：<i style="color:red;padding:2px;">*</i>',
+						name: 'loginPassword2',
+						config: {
+							attr: {
+								type: 'password'
+							}
+						}
+					} : {},
+					{
+						element: 'select',
+						label: '用户角色：<i style="color:red;padding:2px;">*</i>',
+						name: 'userRole',
+						config: {
+							value: user && user.userRole ? user.userRole.toString() : "null"
+						},
+						datas: [{
+								"name": "请选择", //下拉框文本
+								"value": "null" //下拉框值
+							},{
+								"name": "普通调度人员", //下拉框文本
+								"value": 10 //下拉框值
+							},{
+								"name": "调度管理人员",
+								"value": 11
+							},{
+								"name": "退单审核人员",
+								"value": 15
+							},{
+								"name": "大港调度人员", 
+								"value": 12 
+							},{
+								"name": "物资管理人员", 
+								"value": 13 
+							},{
+								"name": "系统管理人员", //下拉框文本
+								"value": 90 //下拉框值
+							},{
+								"name": "物资管理设备清查", 
+								"value": 14 
+							},{
+								"name": "综调管理人员", 
+								"value": 16
+							}
+						]
+					}, {
+						element: 'input',
+						label: '移动电话：<i style="color:red;padding:2px;">*</i>',
+						name: 'userMobile',
+						config: {
+							attr: {
+								value: user ? user.userMobile : ""
+							}
+						}
+					}, {
+						element: 'selectTree',
+						label: '管理区域：<i style="color:red;padding:2px;">*</i>',
+						name: 'domainCodes',
+						config: {
+							childNodeOnly: true,
+							text: user ? user.domainNames : [],
+							value: user ? user.domainCodes : [],
+							attr: {
+								disabled: 'disabled' 
+							}
+						},
+						url: domainUrl
+					} ,
+					{
+						element: 'select',
+						label: '敏感权限：<i style="color:red;padding:2px;">*</i>',
+						name: 'sensitiveRight',
+						config: {
+							value: user && (user.sensitiveRight || user.sensitiveRight.toString()) ? user.sensitiveRight.toString() : "null"
+						},
+						datas: [{
+								"name": "请选择", //下拉框文本
+								"value": "null" //下拉框值
+							},
+							{
+								"name": "只能查看脱敏信息", //下拉框文本
+								"value": 0 //下拉框值
+							},
+							{
+								"name": "可查看未脱敏信息",
+								"value": 1
+							}
+						]
+					 }					
+
+					, {
+						element: 'selectTree',
+						label: '审核类型：<i style="color:red;padding:2px;">*</i>',
+						name: 'auditTypes',
+						config: {
+							childNodeOnly: true,
+							text: user ? user.auditTypeNames : [],
+							value: user ? user.auditTypes : [],
+							attr: {
+								disabled: 'disabled'
+							}
+						},
+						url: auditTypeArr
+					}, {
+						element: 'any',
+						name: 'groupIds_any',
+						content: '<div name="groupIds_any" style="text-align:right;"><span style="display:inline-block;position:absolute;left:28px;top:9px;">管理班组：<i style="color:red;padding:2px;margin-right:12px;"></i></span><span id="groupIds" name="groupIds" class="user_groupIds"></span></div>',
+						label: '',
+						colspan: '1'
+					}
+				]
+			});
+			$("#userValidatorContainer").parent().css("height","450px");
+			var groupIds_any_parents = $('[name="groupIds_any"]').parent();
+			var auditTypes_parents = $('[name="auditTypes"]').parent().parent().parent();
+			if(user && user.userRole == 12 ){
+				var url_str = '/mtnGroupsByCountyCodes?countyCode='+user.domainCodes;
+				newSelectTree(url_str);	
+			}else{
+				groupIds_any_parents.css({"display":"none"});
+			} 
+			if(!(user && user.userRole == 15 )){
+				auditTypes_parents.css({"display":"none"});
+			} 
+			$('#userValidatorContainer').on('change', '[name="userRole"]', function (e, valueObj) { 
+				var userRole = $('[name="userRole"]').val();
+				if(userRole == 12 ){
+					groupIds_any_parents.css({"display":"inline-block"});
+					if($('[name="domainCodes"]').val() != ""){
+						var url_str = '/mtnGroupsByCountyCodes?countyCode='+$('[name="domainCodes"]').val();
+						newSelectTree(url_str);	
+					}
+				}else{
+					groupIds_any_parents.css({"display":"none"});
+				}
+				if(userRole == 15 ){
+					auditTypes_parents.css({"display":"inline-block"});
+				}else{
+					auditTypes_parents.css({"display":"none"});
+				} 
+			});
+			$('#userValidatorContainer').on('change', '[name="domainCodes"]', function () {
+				var url_str = '/mtnGroupsByCountyCodes?countyCode='+$('[name="domainCodes"]').val();
+				newSelectTree(url_str);	
+			});
+			/**
+			 * 班组下拉树结构
+			 */
+			selectTree_value = user && user.groupIds ? user.groupIds.join(",") : "";
+			var selectTree;
+			function newSelectTree (url_str){
+				ajax.ajaxJson(url + url_str, 'get', function (data) {
+					var datas = changeSelectedKey(data.beans,"name","value","name");
+					if(selectTree){
+						selectTree.reload(datas);
+						selectTree_value = "";
+						$("[name='sn-groupIds-text']").val("");
+					}else{
+						selectTree = new SelectTree({
+							el: '#groupIds',
+							name: 'groupIds',
+							check: true,
+							textField: 'param',
+							childNodeOnly: true,
+							expandAll: false,
+							childOnly: true,
+							url: datas,
+							checkAllNodes: true,
+							text: user ? user.groupNames : [],
+							value: user ? user.groupIds : [],
+							async: {
+								enable : false
+							}
+						});
+						$('.ui-dialog-content').removeClass('ui-dialog-content');
+						selectTree.on("confirm",function(nodes){
+							selectTree_value = "";
+							var new_arr = [];
+							for(var i=0;i<nodes.length;i++){
+								if($.trim(nodes[i].value)!=""){
+									selectTree_value += nodes[i].value+",";
+									new_arr.push(nodes[i]);
+								}
+							}
+							selectTree_value = selectTree_value.substring(0,selectTree_value.length-1);
+							nodes = new_arr;
+						});
+					}
+				});		
+			}
+		};
+		/**
+		 * 替换下拉选的key值
+		 */
+		function changeSelectedKey(arr, key, val, param) {
+			if (!arr) {
+				return []
+			}
+			var newArr = []
+			for (var i = 0; i < arr.length; i++) {
+				var temp = {
+					name: arr[i][key],
+					value: arr[i][val],
+					param: arr[i][name]
+				}
+				if (arr[i].children) {
+					temp.children = changeSelectedKey(arr[i].children, key, val, param);
+				}
+				newArr.push(temp);
+			}
+			return newArr;
+		};
+
+		//导出用户表
+        var getExportUsers = function (data) {
+            ajax.downloadFile(url + "/webUsers/export" + "?" + $.param($.extend({}, {
+                isExportAllData: true
+            }, data)));
+        };
+		return {
+			userItemUrl: userItemUrl,
+			addWebUser: addWebUser,
+			getWebUser: getWebUser,
+			modifyWebUser: modifyWebUser,
+			removeWebUser: removeWebUser,
+			unlockWebUser: unlockWebUser,
+			lockWebUser: lockWebUser,
+			propUserForm: propUserForm,
+			resetPassword: resetPassword,
+			modifyPassword: modifyPassword,
+			logout: logout,
+			getExportUsers: getExportUsers,
+		};
+	});

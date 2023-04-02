@@ -1,0 +1,1449 @@
+/**
+ * 定单管控模块
+ */
+define(['./ajax', 'date', 'Util', 'selectTree', 'dialog', './utils', './constans', 'assets/common/cookie'],
+    function (ajax, MyDate, Util, SelectTree, Dialog, MyUtils, constans, Cookie) {
+        var userbean = Cookie.get('userbean');
+        var userRole = userbean ? JSON.parse(userbean).userRole : "";
+        var url = ajax.server;
+        /**
+         * 注册一个比较大小的Helper,判断v1是否大于v2
+         */
+        Util.hdb.registerHelper("compare", function (value, equalValue, options) {
+            if(value || value == 0){
+                if(value>equalValue){
+                    //满足添加继续执行
+                    return options.fn(this);
+                }else{
+                    //不满足条件执行{{else}}部分
+                    return options.inverse(this);
+                }
+            }else{
+                 return ''; 
+            }
+        });
+        /**
+         * 注册一个时间转换函数
+         */
+        Util.hdb.registerHelper("timestamp", function (value) {
+            if(value || value == 0){
+                var result = parseInt(value);
+                var h = Math.floor(result / 3600);
+                var m = Math.floor((result / 60 % 60));
+                return h+'小时'+m+'分钟';    
+            }else{
+                return '';             
+            }
+        });
+        /**
+         * 注册一个距离转换函数
+         */
+        Util.hdb.registerHelper("distancestamp", function (value) {
+            if(value || value == 0){
+                return value < 1000 ? value + '米' : (value / 1000.0).toFixed(2) + '千米';   
+            }else{
+                return '';             
+            }
+        });
+        /**
+         * 注册一个宽带速率转换函数,后端数据×10
+         */
+        Util.hdb.registerHelper("convertMbps", function (value) {
+            if(value || value == 0){
+                return (value*10).toFixed(2);   
+            }else{
+                return '';             
+            }
+        });
+        /**
+         * 注册一个排序函数 
+         */
+        Util.hdb.registerHelper("sort", function (value) {
+            if(value && value.length > 0){
+                var arr = new Array(value.length);
+                for(var i = 0; i < value.length; i++){
+                    arr[value[i].sort] = value[i].sn;
+                }
+                return arr.join("、");
+            }else{
+                return "";
+            }
+        });
+        /**
+         * 注册自定义equals函数
+         */
+        Util.hdb.registerHelper("equals", function (value, equalValue, options) {
+            if (value == equalValue) {
+                return options.fn(this);
+            } else {
+                return options.inverse(this);
+            }
+        });
+        /**
+         * 注册自定义equals反函数
+         */
+        Util.hdb.registerHelper("notequals", function (value, equalValue, options) {
+            if (value != equalValue) {
+                return options.fn(this);
+            } else {
+                return options.inverse(this);
+            }
+        });
+        /**
+         * 注册自定义contains函数
+         */
+        Util.hdb.registerHelper("contains", function (value, containsValue, options) {
+            containsValue = containsValue ? containsValue : 'BH'
+            if (value.indexOf(containsValue) != -1) {
+                return options.fn(this);
+            }else{
+                return options.inverse(this);
+            }
+        });
+        /**
+         * 注册自定义contains反函数
+         */
+        Util.hdb.registerHelper("nocontains", function (value, containsValue, options) {
+            if (value.indexOf(containsValue) == -1) {
+                return options.fn(this);
+            }else{
+                return options.inverse(this);
+            }
+        });
+        /**
+         * 注册自定义if函数
+         */
+        Util.hdb.registerHelper("_if", function (value, options) {
+            if (value) {
+                return options.fn(this);
+            } else {
+                return options.inverse(this);
+            }
+        });
+        /**
+         * 注册自定义arrContains函数
+         */
+        Util.hdb.registerHelper("arrContains", function (value, arrString, options) {
+            var arr = arrString.split(',');
+            for (var i = 0; i <= arr.length; i++) {
+                if (value == arr[i]) {//包含
+                    return options.fn(this);
+                }
+            }
+            return options.inverse(this);
+        });
+        /**
+         * 注册自定义matchProvince函数，匹配省份的
+         */
+        Util.hdb.registerHelper("matchProvince", function (provinceCode, options) {
+            if (provinceCode == constans.province) {
+                return options.fn(this);
+            }
+        });
+        /**
+         * 注册自定义subStrFromSign函数，截取指定字符的最后一个到末尾
+         */
+        Util.hdb.registerHelper("subStrFromSign", function (sign, value) {
+            //由于IE8不支持lastIndexof,split成数组取最后一个元素
+            var arr = value.split('/');
+            return arr[arr.length - 1];
+        });
+        /**
+         * 注册自定义subStrFromStr函数，截取指定字符的最后一个到末尾
+         */
+        Util.hdb.registerHelper("subStrFromStr", function (sign, value) {
+            var arr = value.split(sign);
+            return arr[arr.length - 1];
+        });
+        /**
+        * 注册自定义replaceAll函数，替换某个字符
+        */
+        Util.hdb.registerHelper("replaceAll", function (str, regexp, replaceStr) {
+            if (!str) { return null }
+            // console.log(str.replace(new RegExp(regexp, 'g'), replaceStr));
+            return str.replace(new RegExp(regexp, 'g'), replaceStr);
+        });
+        // Web端定单管理后端服务Url
+        var webOrderUrl = ajax.appendToken(url + "/webOrdersPro");
+        // Web端定单异常处理
+        var orderExceptionUrl = ajax.appendToken(url + "/webOrders/abnormity");
+        // web端异常收费处理
+        var chargeExceptionUrl = ajax.appendToken(url + "/webOrders/orderFeeAbnormity");
+        // Web端异常改约处理
+        var orderChangingExceptionUrl = ajax.appendToken(url + "/webOrders/getUnusualApptChange");
+        // 定单矩阵查询后端服务Url
+        var orderMatrixUrl = url + "/webOrders/orderMatrix";
+        // 上传单个文件云存储平台的url
+        var fileUploadUrl = url + "/storageAlone";
+        // 工单矩阵初始化接口
+        var orderMatrixDetailUrl = url + "/webOrders/orderMatrix/detail";
+        /**
+         * 查询定单流程图
+         * @param {Object} draftId
+         * @param {Object} config
+         * @param {Object} orderState
+         */
+        var getWorkflowGraph = function (draftId, config, orderState) {
+            ajax.getRender(url + '/orders/workflowGraph/' + draftId, {}, config, function (data) {
+                //验证现在的状态是否正确，若不正确证明是刷新或者复制url过来的
+                var beans = data.beans;
+                if (beans) {
+                    for (var i = 0; i < beans.length; i++) {
+                        if (beans[i].status == 0) {
+                            if (beans[i].stateName != orderState) {
+                                $('#contents #flowdiv .operbtn').html('');
+                            }
+                            return false;
+                        }
+                    }
+                    $('#contents #flowdiv .operbtn').html('');
+                }
+            });
+        };
+        /**
+         * 查询工单详情信息
+         * @param {Object} draftId
+         * @param {Object} orderType
+         * @param {Object} config
+         */
+        var getOrderMessage = function (draftId, orderType, config , callback) {
+            ajax.getRender(url + '/orders/' + draftId + '/' + orderType, {"userRole":userRole}, config, function (d) {
+                //已报结/已退单 定单去掉操作按钮
+                if(d.bean.orderSummary.orderState == "20"  || d.bean.orderSummary.orderState == "4"){
+                    $('#order_get_rxpower_btn').remove();//获取光功率
+                    $('#order_get_radiusLog_btn').remove();//上网认证记录获取
+                    $('#order_get_wbdiagnose_btn').remove();//重新诊断
+                    $('#order_update_wbdiagnose_btn').remove();//更新结果
+                    $('#order_get_diagnosis_btn').remove();//质差诊断
+                    $('#order_to_support_diagnosis_btn').remove();//质差诊断
+                    $('#speedTest_btn').remove();//测速速率
+                }
+                var userAcct = d.bean.orderModel.userAcct;
+                var orderStateCn = d.bean.orderSummary.orderStateCn;
+                if (orderStateCn) {
+                    $('#orderStateCn').html(orderStateCn);
+                    //获取光功率
+                    $('#order_get_rxpower_btn').click(function () {
+                        getOnuPower(draftId, orderType);
+                    });
+                }
+                //上网认证记录获取
+                $('#order_get_radiusLog_btn').click(function () {
+                    getRadiusLog(draftId);
+                });
+                //诊断测试更新
+                $('#order_get_wbdiagnose_btn').click(function () {
+                    getWbdiagnose(draftId);
+                });
+                //诊断测试保存
+                $('#order_update_wbdiagnose_btn').click(function () {
+                    updateWbdiagnose(draftId, userAcct);
+                });
+                //质差诊断
+                $('#order_get_diagnosis_btn').click(function () {
+                    materialDiffTestChecking(draftId, userAcct);
+                });
+                //获取测速
+                var bandwidth = "";
+                if(d.bean.orderModel.bandwidth){
+                    bandwidth = d.bean.orderModel.bandwidth;
+                }
+                $('#speedTest_btn').click(function () {
+                    var downloadUrl = $("#urlAddrs").val();
+                    getSpeedTest(draftId, downloadUrl, bandwidth, orderType);
+                });
+                callback && callback(d.bean);
+            });
+        };
+
+        /**
+         * 工单操作的初始化
+         * @param {Object} config
+         * @param {Object} data
+         */
+        var getOrderOperationInit = function (config, data) {
+            config.el = $('#schedul');
+            var callback = config.callback;
+            //修改成在回调里面判断要调哪些回调方法
+            if (!callback) {
+                callback = function (data, config) {
+                    if (config.date) {
+                        getDate(data, config);
+                    }
+                    if (config.group) {
+                        getGroup(data, config);
+                    }
+                    if (config.selectedChange) {
+                        selectedChange(data, config);
+                    }
+                    if (config.regressEoms) {
+                        getRegressEoms(data, config);
+                    }
+                    if (config.complain) {
+                        getComplainTypeTree(data, config);
+                    }
+                    if (config.offlineComplain) {
+                        //投诉原因事件绑定
+                        getOfflineComplain(data, config);
+                    }
+                    if(config.regressIptv){ //变更-新开IPTV退单原因为其他时显示其他原因说明
+                        regressIptvChange();
+                    }
+                    if(config.openReport) { //装机单&全路由报结数据初始化
+                        getOpenOrderReportInit(data, config.operation);
+                        $("#order_report_get_radiusLog_btn").on('click',function(){
+                            getRadiusLog(config.draftId);
+                        });
+                    }
+                    if (config.netWorking) {//组网报结数据初始化
+                        getNetWorkingtInit(data);
+                    }
+                    if (config.regressNet) {//组网退单数据初始化
+                        getRegressNetInit(data, config);
+                    }
+                    if (config.safety) {//安防单报结数据初始化
+                        getSafetyInit(data, config.operation);
+                    }
+                    if (config.removeGetOnuPower) {
+                        removeGetOnuPower(data);
+                    }
+                    if(config.removeGetSpeedTest){
+                        //装机单只有开通单才有测速，撤销和变更单没有
+                        $("#getSpeedTest").remove();
+                    }
+                    if(config.appointmentPhone){//如果是预约操作，给预约电话赋值
+                        var re = /^1(3|4|5|6|7|8|9)\d{9}$/; //正则表达式 /^(13[0-9]|14[0-9]|15[0-9]|166|17[0-9]|18[0-9]|19[8|9])\d{8}$/
+                        var phone1 = data.bean.appointMobile[0].value;
+                        var phone2 = data.bean.appointMobile[1]&&data.bean.appointMobile[1].value;
+                        $("[name=contactPhone]").find("option:first").text("联系方式1："+phone1);
+                        phone2&&$("[name=contactPhone]").find("option:eq(1)").text("联系方式2："+phone2);
+                        if(re.test(phone2)&&(!re.test(phone1))){ 
+                            $("[name=contactPhone]").val(phone2);
+                        }else{
+                            $("[name=contactPhone]").val(phone1);
+                        } 
+                    }
+                    if (config.transfer) { //转派初始化回调方法
+                        getTransferInit(data,config);
+                    }
+                }
+            }
+            var operationUrl = config.url;
+            if (config.ajax == false) { //如果不用交互
+                $('#schedul').html(Util.hdb.compile(config.tpl)({
+                    bean: ''
+                }));
+                return;
+            }
+            if (operationUrl && operationUrl.indexOf('schedule') != -1) { //调度和指派，url格式不一样,draftId不是直接在url上的
+                ajax.getRender(url + '/webOrders/' + operationUrl, data, config, callback); //获取可调度/指派班组
+            } else if (operationUrl && operationUrl.indexOf('schedule') == -1) {
+                ajax.getRender(url + '/webOrders/' + operationUrl + '/' + config.draftId, data, config, callback);
+            } else {
+                $('#schedul').html(Util.hdb.compile(config.tpl)({
+                    region: {
+                        name: 'mtnGroupId',
+                        groups: data.beans
+                    }
+                }));
+            }
+        };
+        /**
+         * 查班组荷载
+         * @param {Object} option
+         */
+        var getMtnGroupLoad = function (option, title) {
+            var dialog = null;
+            $('#tip').html(title ? "班组定单调度情况：绿色表示已安排定单" : "装维人员已排工作量：绿色表示已安排定单");     
+            if(title){
+                urlstr = url + '/webOrders/schedule/load';
+            }else{
+                urlstr = url + '/webOrders/schedule/mtnUser/load';
+            }
+            ajax.ajaxJson(urlstr, 'get', option, function (data) {
+                if (data.returnCode == 0) {
+                    var beans = data.beans;
+                    $('#dipTime td').removeClass('selected selected_red').html(''); // 先清空
+                    $('#dipTime td').removeAttr('selected_red content new');//清空提示
+                    $('#dipTime td').unbind();//解绑
+                    for (var i = 0; i < beans.length; i++) {
+                        var taskHour = beans[i].taskHour;
+                        var tasks = beans[i].tasks;
+                        var isUpperLimit =  beans[i].isUpperLimit
+                        var tasksSize = tasks.length;
+                        var a = "";
+                        for (var j = 0; j < tasksSize; j++) {
+                            var orderUsedMessage = {
+                                draftId: tasks[j].draftId,
+                                id: tasks[j].orderId,
+                                orderType: tasks[j].orderType
+                            }
+                            a += '<a href="javascript:void(0);" data-url="js/orderquery/orderoperation" param=' + JSON.stringify(orderUsedMessage) + '>' + tasks[j].orderId + '</a>';
+                            if (j != tasksSize - 1) {
+                                a += '；'
+                            }
+                        }
+                        $('#dipTime td[hour=' + taskHour + ']').attr('content', a);
+                        // console.log(a);
+                        if (tasksSize == 0) {
+                            tasksSize = '';
+                        } else {
+                            //绑定显示悬浮定单号
+                            flag = true;
+                            $('#dipTime td[hour=' + taskHour + ']').unbind().bind({
+                                'mouseenter': function () {
+                                    var hourValue = $(this).attr('hour');
+                                    if (!dialog) {
+                                        dialog = new Dialog({
+                                            mode: 'tips',
+                                            delayRmove: 1000,
+                                            content: $(this).attr('content')
+                                        })
+                                    }
+
+                                    $('.ui-dialog-tip').unbind().bind({
+                                        'mouseenter': function () {
+                                            flag = false;
+                                            // dialog.show($('#dipTime td[hour=' + hourValue + ']')[0]);
+                                        }, 'mouseleave': function () {
+                                            dialog.remove();
+                                            dialog = null;
+                                            flag = true;
+                                        }
+                                    })
+                                    dialog.show($('#dipTime td[hour=' + hourValue + ']')[0]);
+                                }, "mouseleave": function () {
+                                    setTimeout(function () {
+                                        if (flag) {
+                                            dialog.remove();
+                                            dialog = null;
+                                        }
+                                    }, 50);
+                                }
+                            })
+                        }
+                        $('#dipTime td[hour=' + taskHour + ']').addClass('selected').html(tasksSize);
+                        if(isUpperLimit == 1){
+                             $('#dipTime td[hour=' + taskHour + ']').addClass('selected_red').html(tasksSize);
+                             $('#dipTime td[hour=' + taskHour + ']').attr("selected_red", "1");
+                        }
+                    }
+                }
+            });
+        };
+        /**
+         * 客户关怀（短信服务）初始化信息查询
+         * @param {Object} config
+         */
+        var getCustCareSmsScene = function (config) {
+            ajax.getRender(url + '/webOrders/custCare', {}, config, function () {
+                $('#sms_text').html($('#sms_text').html().replace('${phone_num}', '<span id="contentPhoneNum">[]</span>'));
+            });
+        };
+        /**
+         * 客户关怀（短信服务）提交，发送短信
+         * @param {Object} config
+         */
+        var custCareSmsSceneSubmit = function (data) {
+            ajax.ajaxJson(url + '/webOrders/custCare', 'post', data, function (d) {
+                if (d && d.returnCode == 0) {
+                    MyUtils.propMessage("短信发送成功", true);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+        var getRegressEoms = function(d, config){
+            //处理投诉单附件数据格式
+            d.bean.attachList1 = d.bean.attachList[0] || "";
+            d.bean.attachList2 = d.bean.attachList[1] || "";
+            d.bean.attachList3 = d.bean.attachList[2] || "";
+            $('#schedul').html(Util.hdb.compile(config.tpl)(d));
+            config.regressEomsFileUpload();//投诉退单上传附件
+        }
+        /**
+         * 初始化投诉现象
+         * @param {Object} d
+         */
+        var getComplainTypeTree = function (d, config) {
+            //特殊种类的投诉原因，“魔百和、家庭宽带、装维人员、互联网电视”
+            var busiTypeList = MyUtils.changeSelectedKey(d.bean.busiTypeList, 'pathShort', 'id', 'questionType');
+            //处理投诉单附件数据格式
+            d.bean.attachList1 = d.bean.attachList[0] || "";
+            d.bean.attachList2 = d.bean.attachList[1] || "";
+            d.bean.attachList3 = d.bean.attachList[2] || "";
+            ajax.ajaxJson(url + '/webOrders/report/complain/complaintype', 'get', function (data) {
+                var complainType = d.bean.complainTypeId = d.bean.complainType ? d.bean.complainType.id : '';
+                d.bean.compReasonId = d.bean.complainReason ? d.bean.complainReason.id : '';
+                var beans = MyUtils.changeSelectedKey(data.beans, 'pathShort', 'id', 'questionType');
+                d.bean.complainTypeOptions = beans;
+                d.bean.complainReasonOptions = [];
+                if(d.bean.reasonType == 1){ //默认为0 ，1代表是投诉类型包含“魔百和、家庭宽带、装维人员、互联网电视”
+                    d.bean.complainReasonOptions = busiTypeList;
+                }else{
+                    for(var i=0; i<beans.length; i++){
+                        if(complainType == beans[i].value){
+                            var children = beans[i].children;
+                            d.bean.complainReasonOptions = children;
+                        }
+                    }
+                }
+                $('#schedul').html(Util.hdb.compile(config.tpl)(d));
+                //要先保存之前选择的数据
+                $("[name='isTransfer'][value='" + $("#isTransferHidValue").val() + "']").attr("checked", true);
+                $("[name='isArrival'][value='" + $("#isArrivalHidValue").val() + "']").attr("checked", true);
+                $("#order_report_get_radiusLog_btn").on('click',function(){
+                    getRadiusLog(config.draftId);
+                })
+                config.regressEomsFileUpload();//投诉退单上传附件
+
+                $('#schedul').on('change', '.complainTypeSelect', function () {
+                    if(d.bean.reasonType == 1){
+                        return false;
+                    }
+                    d.bean.complainTypeId = $(this).val();
+                    d.bean.complainReasonOptions = [];
+
+                    $("#schedul [name='compReasonId']").empty();
+                    var option = $("<option>").val("").text("请选择");
+                    $("#schedul [name='compReasonId']").append(option);
+                    for(var i=0; i<beans.length; i++){
+                        if(d.bean.complainTypeId == beans[i].value){
+                            var children = beans[i].children;
+                            d.bean.complainReasonOptions = children;
+                        }
+                    }
+                    for(var j=0; j<d.bean.complainReasonOptions.length; j++){
+                        var obj = d.bean.complainReasonOptions[j];
+                        var option = $('<option questionType='+obj.param+' >').val(obj.value).text(obj.name);
+                        $("#schedul [name='compReasonId']").append(option);
+                    }
+                });
+
+                //获取投诉单 设备类型、设备厂商、设备型号
+                ajax.ajaxJson(url + '/orders/getComplainDeviceList', 'get', function (data) {
+                    var complainReason = d.bean.complainReason ? d.bean.complainReason.id : '';     //投诉原因
+                    var questionType = d.bean.complainReason ? d.bean.complainReason.questionType : '';     //投诉原因
+                    getComplainDevices(d, data, questionType, true);
+                    
+                    $('#schedul').on('change', '.complainReasonSelect', function () {   //当投诉原因发生改变时
+                        var new_complainReason = $(this).val();
+                        var questionType = $(this).find("option:selected").attr("questionType");                        
+                        getComplainDevices(d, data, questionType, new_complainReason == complainReason);
+                    });    
+                });
+            });
+        };
+
+        var getComplainDevices = function(d, data, questionType, init){
+            var sblx_reason = d.bean.equipmentTypeId || "";  
+            var sbcs_reason = d.bean.equipmentVendorId || "";
+            var sbxh_reason = d.bean.equipmentModelId || "";
+       
+            var gma_beans = MyUtils.changeSelectedKey(data.beans[0].children, 'enumVal', 'enumId', 'enumDesc');    //光猫级联
+            var jdh_beans = MyUtils.changeSelectedKey(data.beans[1].children, 'enumVal', 'enumId', 'enumDesc');    //机顶盒级联
+            var znzw_beans = MyUtils.changeSelectedKey(data.beans[2].children, 'enumVal', 'enumId', 'enumDesc');    //路由器级联         
+
+            var option_one = [];
+            var option_two = [];
+            var option_thr = [];
+            //如果是光猫/路由器/机顶盒，显示设备信息
+            if(questionType == "1"){   //光猫
+                $(".reasonType1").show();
+                $(".reasonType2").show();
+                option_one = gma_beans;
+                option_two = option_one[0] && option_one[0].children || [];
+                for(var i=0; i<option_one.length; i++){
+                    if(sblx_reason == option_one[i].value){
+                        option_two = option_one[i].children;
+                    }
+                }
+            }else if(questionType == "2"){ //机顶盒
+                $(".reasonType1").hide(); $("#schedul [name='equipmentTypeId']").val("");
+                $(".reasonType2").show();
+                option_two = jdh_beans;
+            }else if(questionType == "3"){ //路由器
+                $(".reasonType1").hide(); $("#schedul [name='equipmentTypeId']").val("");
+                $(".reasonType2").show();
+                option_two = znzw_beans;
+            }else{  //其他类型不显示
+                $(".reasonType1").hide(); $("#schedul [name='equipmentTypeId']").val("");
+                $(".reasonType2").hide(); $("#schedul [name='equipmentVendorId']").val(""); $("#schedul [name='equipmentModelId']").val("");
+            }
+
+            option_thr = option_two[0] && option_two[0].children || [];
+            for(var i=0; i<option_two.length; i++){
+                if(sbcs_reason == option_two[i].value){
+                    option_thr = option_two[i].children;
+                }
+            }
+            
+            $("#schedul [name='equipmentTypeId']").empty();    //设备类型
+            for(var i=0; i<option_one.length; i++){
+                var option = $("<option>").val(option_one[i].value).text(option_one[i].name);
+                $("#schedul [name='equipmentTypeId']").append(option);
+            }
+            
+            $("#schedul [name='equipmentVendorId']").empty();    //设备厂商
+            for(var i=0; i<option_two.length; i++){
+                var option = $("<option>").val(option_two[i].value).text(option_two[i].name);
+                $("#schedul [name='equipmentVendorId']").append(option);
+            }
+           
+            $("#schedul [name='equipmentModelId']").empty();    //设备型号
+            for(var i=0; i<option_thr.length; i++){
+                var option = $("<option>").val(option_thr[i].value).text(option_thr[i].name);
+                $("#schedul [name='equipmentModelId']").append(option);
+            }
+           
+            if(init){  //初始化赋值，其他情况不赋值，可能赋值不上去   
+                $("#schedul [name='equipmentTypeId']").val(sblx_reason);
+                $("#schedul [name='equipmentVendorId']").val(sbcs_reason);
+                $("#schedul [name='equipmentModelId']").val(sbxh_reason);
+            }
+
+            $('#schedul').off('change', '.sblxCss').on('change', '.sblxCss', function () {    //设备类型
+                var sblx_reason = $(this).val();
+                for(var i=0; i<option_one.length; i++){
+                    if(sblx_reason == option_one[i].value){
+                        option_two = option_one[i].children;
+                    }
+                }
+                $("#schedul [name='equipmentVendorId']").empty();   
+                for(var i=0; i<option_two.length; i++){
+                    var option = $("<option>").val(option_two[i].value).text(option_two[i].name);
+                    $("#schedul [name='equipmentVendorId']").append(option);
+                }
+            });
+
+            $('#schedul').off('change', '.sbcsCss').on('change', '.sbcsCss', function () {    //设备厂商
+                var sbcs_reason = $(this).val();
+                for(var i=0; i<option_two.length; i++){
+                    if(sbcs_reason == option_two[i].value){
+                        option_thr = option_two[i].children;
+                    }
+                }
+                $("#schedul [name='equipmentModelId']").empty();   
+                for(var i=0; i<option_thr.length; i++){
+                    var option = $("<option>").val(option_thr[i].value).text(option_thr[i].name);
+                    $("#schedul [name='equipmentModelId']").append(option);
+                }
+            });
+        } 
+
+        var getOfflineComplain = function(d, config){
+            var reason1 = d.bean.problemReason1;
+            var reason2 = d.bean.problemReason2;
+            var list1 = [], list2 = [], list3 = [];
+            list1 = MyUtils.changeSelectedKey(d.bean.problemReasonList, 'enumVal', 'enumId', 'questionType');    //光猫级联
+            if(reason1){
+            	list2 = filterArr(list1, reason1);
+            }
+            if(reason2){
+            	list3 = filterArr(list2, reason2);
+            }
+            d.bean.problemReasonList1 = list1;
+            d.bean.problemReasonList2 = list2;
+            d.bean.problemReasonList3 = list3;
+            d.bean.repairSucList = [{name:"是",value:"是"},{name:"否",value:"否"}];
+            d.bean.repairMeasureList = MyUtils.changeSelectedKey(d.bean.repairMeasureList, 'enumVal', 'enumId', 'enumDesc');
+            $('#schedul').html(Util.hdb.compile(config.tpl)(d));
+
+            $('#schedul').off('change', '.problemReasonList1').on('change', '.problemReasonList1', function () {    
+                var reason1 = $(this).val();
+                list2 = filterArr(list1, reason1);
+                $("#schedul [name='problemReason2']").empty();
+                var option = $("<option>").val("").text("请选择");
+                $("#schedul [name='problemReason2']").append(option);
+                for(var i=0; i<list2.length; i++){
+                    var option = $("<option>").val(list2[i].value).text(list2[i].name);
+                    $("#schedul [name='problemReason2']").append(option);
+                }
+                $("#schedul [name='problemReason3']").empty();
+            });
+            $('#schedul').off('change', '.problemReasonList2').on('change', '.problemReasonList2', function () {    
+                var reason2 = $(this).val();
+                list3 = filterArr(list2, reason2);
+                $("#schedul [name='problemReason3']").empty();
+                var option = $("<option>").val("").text("请选择");
+                $("#schedul [name='problemReason3']").append(option);
+                for(var i=0; i<list3.length; i++){
+                    var option = $("<option>").val(list3[i].value).text(list3[i].name);
+                    $("#schedul [name='problemReason3']").append(option);
+                }
+            });
+        }
+        function filterArr(list, val) {
+            var child = list.filter(function(item) { return item.value == val; })[0];
+            return (child && child.children) || [];
+        }
+        /**
+         * 提交工单操作
+         * @param {Object} operation
+         * @param {Object} draftId
+         * @param {Object} option
+         */
+        var operationSubmit = function (operation, order, option) {
+            loadingMtnDistricts = MyUtils.getLoading( $("body"), "300", "加载中...", "loadingInfo");
+            ajax.ajaxJson(url + '/webOrders/' + operation + '?draftId=' + order.draftId, 'post', option, function (data) {
+                loadingMtnDistricts.destroy();
+                if (data.returnCode == 0) {
+                    if (!data.bean) {
+                        MyUtils.propMessage("操作失败", true);
+                        return;
+                    }
+                    $('#contents #flowdiv .operbtn').html('');
+                    $('#schedul').html('');
+                    var params = {
+                        draftId: order.draftId,
+                        id: $('#orderId').html(),
+                        orderType: order.orderType,
+                        orderState: order.orderState
+                    }
+                    MyUtils.propMessage("操作成功", true);
+                    //操作完成后刷新当前定单详情
+                    var a = document.createElement('a');
+                    a.setAttribute('data-url', 'js/orderquery/orderoperation');
+                    a.setAttribute('param', JSON.stringify(params));
+                    var body = document.getElementsByTagName('body')[0];
+                    body.appendChild(a);
+                    a.click();
+                    //body.removeChild(a);
+                    localStorage.setItem('logged-on-n9857085441', nowTime(0));
+                } else if(data.returnCode == 'E1713'){
+                    option = option.replace("validateOnuPower=0","validateOnuPower=1");
+                    var dialog = new Dialog({
+                        mode: 'confirm',
+                        cancelDisplay: true,
+                        content: data.returnMessage,
+                        ok:function(){
+                            operationSubmit(operation, order, option);
+                        },
+                        cancel: function () { console.log('点击了取消按钮') }, 
+                    });
+                } else if(['SN1008', 'SN1010', 'SN1014', 'SN1016', 'SN1018', 'SN1020', 'SN1022', 'SN1024', 'SN1026'].includes(data.returnCode)){
+                    option = option.replace("isSnValidate=1","isSnValidate=0");
+                    var dialog = new Dialog({
+                        mode: 'confirm',
+                        cancelDisplay: true,
+                        content: data.returnMessage,
+                        ok:function(){
+                            operationSubmit(operation, order, option);
+                        },
+                        cancel: function () { console.log('点击了取消按钮') }, 
+                    });
+                } else {
+                    MyUtils.propMessage(data.returnMessage, true);
+                }
+            });
+        };
+        // 获取时间组件，并渲染到class位date的dom下
+        var getDate = function (data, config) {
+            // 针对2021年6月24日0点以后首次派单进入装维系统的开通、变更类工单，预约、改约增加最长缓装期限制，最长可以预约到首派时间3个月以后
+            var maxAppointDate = nowTime(36500);
+            if(config.operation=="appointment"){
+                if("开通" == config.order.actType || "变更" == config.order.actType){   
+                    var oDate1 = new Date(config.order.firstSendTime);
+                    var oDate2 = new Date("2021-06-24 00:00:00");
+                    if(oDate1.getTime() >= oDate2.getTime()){ 
+                        oDate1.setMonth(oDate1.getMonth()+3);
+                        oDate1.setHours(23,59,59);
+                        maxAppointDate = oDate1.pattern('yyyy-MM-dd 23:59:59');
+                    } 
+                }
+            }
+            // 在前端只需设置挂起截止日期，后端自动设置为该日期的23:59:59
+            var defaultDate = data.bean.suspendEndTime ? data.bean.suspendEndTime : nowTime(0, 'yyyy-MM-dd');
+            var name = data.bean.suspendEndTime ? 'suspendEndTime' : 'taskDay';
+            var mtnGroupDefaultId = $('#grouplist [name="mtnGroupId"]').val();//预约初始化才有班组id，调度没有
+            if (mtnGroupDefaultId) {
+                if(data.bean.mtnUserId){//预约并且抢单开启查询个人
+                    getMtnGroupLoad({
+                        mtnGroupId: mtnGroupDefaultId,
+                        taskDay: defaultDate,
+                        mtnUserId: data.bean.mtnUserId,
+                    }, false);
+                }else{
+                    getMtnGroupLoad({//抢单关闭查询班组
+                        mtnGroupId: mtnGroupDefaultId,
+                        taskDay: defaultDate
+                    }, true);
+                }
+            }
+            date = new MyDate({
+                el: $('.date'),
+                name: name,
+                format: 'yyyy-MM-dd',
+                isReadOnly: true,
+                defaultValue: defaultDate,
+                min: nowTime(0),
+                max: maxAppointDate,
+                type: 'date',
+                done: function (val) {
+                    var mtnGroupId = $('#grouplist [name="mtnGroupId"]').val();
+                    var grabMonadSwitch = $('#grouplist #grabMonadSwitch').val();
+                    if (mtnGroupId) {
+                        if(data.bean.mtnUserId){//预约并且抢单开启查询个人
+                            getMtnGroupLoad({
+                                mtnGroupId: mtnGroupId,
+                                taskDay: val,
+                                mtnUserId: data.bean.mtnUserId,
+                            }, false);
+                        }else if(grabMonadSwitch=="1"){//调度并且抢单开启查询个人
+                            getMtnGroupLoad({
+                                mtnGroupId: mtnGroupId,
+                                taskDay: val,
+                                mtnUserId: $('#grouplist [name="userId"]').val(),
+                            }, $('#grouplist [name="userId"]').val() == "");
+                        }else{
+                            getMtnGroupLoad({//抢单关闭查询班组
+                                mtnGroupId: mtnGroupId,
+                                taskDay: val
+                            }, true);
+                        }
+                    }
+                }
+            });
+        };
+        //拿到所有数据后进行退单原因级联操作
+        var selectedChange = function (data, config) {
+            var reasonCode = data.bean.reasonCode;
+            //退单分类发生改变
+            $('#schedul').on('change', '.selectedChange', function () {
+                data.bean.regressType = $(this).val();
+                data.bean.reason = null;
+                $('#schedul').html(Util.hdb.compile(config.tpl)(data));
+                //重新绑定事件
+                date = new MyDate({
+                    el: $('.date'),
+                    type: "datetime",
+                    // name: name,
+                    format: 'yyyy-MM-dd HH:mm:ss',
+                    // defaultValue: defaultDate,
+                    isReadOnly: true,
+                    min: nowTime(0),
+                    done: function (val) {
+                        $('#dateValue').val(val);
+                        $('#sechedul_remark').val("用户期望预约到时间:" + val);
+                    }
+                });
+                $('#remarkChoise').unbind().on('change', function () {
+                    var remarkChoiseValue = $(this).val();
+                    if (remarkChoiseValue == '其他') {
+                        remarkChoiseValue = '其他:'
+                        $('#sechedul_remark').attr('readonly', false).removeClass("c-666666");
+                    } else {
+                        if (data.option.actType != '开通') {
+                            $('#sechedul_remark').attr('readonly', true).addClass("c-666666");
+                        }
+                    }
+                    if (remarkChoiseValue == '用户期望预约到时间') {
+                        $(".date").css("display", "");
+                    } else {
+                        $(".date").css("display", "none");
+                    }
+                    $('#sechedul_remark').val(remarkChoiseValue);
+                });
+                $('#schedul [name="reasonCode"]').unbind().on('change', function () {
+                    $('#sechedul_remark').attr('readonly', false).removeClass("c-666666");
+                    if ($('#remarkChoise').val() && $('#remarkChoise').val() != "") {
+                        $('#remarkChoise').val("");
+                        $('#sechedul_remark').val("");
+                    }
+                    $('.date').css("display", "none");
+                    getRegressHints($(this).val(), function (data) {
+                        if (data.returnCode == 0) {
+                            if (data.beans && data.beans.length > 0) {
+                                $("#regressMarkList").css("display", "");
+                                $('#remarkChoise').html(Util.hdb.compile('<option value="">请选择</option>{{#each beans}} <option value="{{enumVal}}" reason={{enumVal}}>{{enumVal}}</option>{{/each}}')(data));
+                                $('#sechedul_remark').val("").attr('readonly', true).addClass("c-666666");
+                            } else {
+                                $("#regressMarkList").css("display", "none")
+                            }
+                        } else {
+                            $("#regressMarkList").css("display", "none")
+                        }
+                    })
+                });
+                //获取常用备注选择
+                getRegressHints($('#schedul [name="reasonCode"]').val(), function (d) {
+                    if (d.returnCode == 0 && d.beans && d.beans.length > 0) {
+                        d.remarkChoise = data.bean.remark ? data.bean.remark.split(":")[0] : "";
+                        $("#regressMarkList").css("display", "");
+                        $('#remarkChoise').html(Util.hdb.compile('<option value="">请选择</option>{{#each beans}} <option value="{{enumVal}}" {{#equals ../remarkChoise enumVal}}selected{{/equals}} reason={{enumVal}}>{{enumVal}}</option>{{/each}}')(d));
+                        if (d.remarkChoise.indexOf('用户期望预约到时间') == 0) {
+                            $(".date").css("display", "");
+                        }
+                        if (d.remarkChoise.indexOf('其他') == 0) {
+                            $('#sechedul_remark').attr('readonly', false).removeClass("c-666666");;
+                        } else {
+                            if (data.option.actType != '开通') {
+                                $('#sechedul_remark').attr('readonly', true).addClass("c-666666");
+                            }
+                        }
+                    }
+                });
+            });
+
+            //退单原因发生改变
+            $('#schedul [name="reasonCode"]').unbind().on('change', function () {
+                $('#sechedul_remark').attr('readonly', false).removeClass("c-666666");
+                if ($('#remarkChoise').val() && $('#remarkChoise').val() != "") {
+                    $('#remarkChoise').val("");
+                    $('#sechedul_remark').val("");
+                }
+                $('.date').css("display", "none");
+                getRegressHints($(this).val(), function (data) {
+                    if (data.returnCode == 0) {
+                        if (data.beans && data.beans.length > 0) {
+                            $("#regressMarkList").css("display", "");
+                            $('#remarkChoise').html(Util.hdb.compile('<option value="">请选择</option>{{#each beans}} <option value="{{enumVal}}" reason={{enumVal}}>{{enumVal}}</option>{{/each}}')(data));
+                            $('#sechedul_remark').val("").attr('readonly', true).addClass("c-666666");;
+                        } else {
+                            $("#regressMarkList").css("display", "none")
+                        }
+                    } else {
+                        $("#regressMarkList").css("display", "none")
+                    }
+                })
+            });
+
+            //加一个时间选择器，并在选择事件后面拼接备注
+            date = new MyDate({
+                el: $('.date'),
+                type: "datetime",
+                // name: name,
+                isReadOnly: true,
+                format: 'yyyy-MM-dd HH:mm:ss',
+                // defaultValue: defaultDate,
+                min: nowTime(0),
+                done: function (val) {
+                    $('#dateValue').val(val);
+                    $('#sechedul_remark').val("用户期望预约到时间:" + val);
+                }
+            });
+            $('#remarkChoise').unbind().on('change', function () {
+                var remarkChoiseValue = $(this).val();
+                if (remarkChoiseValue == '其他') {
+                    remarkChoiseValue = '其他:'
+                    $('#sechedul_remark').attr('readonly', false).removeClass("c-666666");
+                } else {
+                    if (data.option.actType != '开通') {
+                        $('#sechedul_remark').attr('readonly', true).addClass("c-666666");
+                    }
+                }
+                if (remarkChoiseValue == '用户期望预约到时间') {
+                    $(".date").css("display", "");
+                } else {
+                    $(".date").css("display", "none");
+                }
+                $('#sechedul_remark').val(remarkChoiseValue);
+            })
+            //页面初始化查询常用备注选择
+            getRegressHints(reasonCode, function (d) {
+                if (d.returnCode == 0 && d.beans && d.beans.length > 0) {
+                    d.remarkChoise = data.bean.remark ? data.bean.remark.split(":")[0] : "";
+                    $("#regressMarkList").css("display", "");
+                    $('#remarkChoise').html(Util.hdb.compile('<option value="">请选择</option>{{#each beans}} <option value="{{enumVal}}" {{#equals ../remarkChoise enumVal}}selected{{/equals}} reason={{enumVal}}>{{enumVal}}</option>{{/each}}')(d));
+                    if (d.remarkChoise.indexOf('用户期望预约到时间') == 0) {
+                        $(".date").css("display", "");
+                    }
+                    if (d.remarkChoise.indexOf('其他') == 0) {
+                        $('#sechedul_remark').attr('readonly', false).removeClass("c-666666");;
+                    } else {
+                        if (data.option.actType != '开通') {
+                            $('#sechedul_remark').attr('readonly', true).addClass("c-666666");
+                        }
+                    }
+                }
+            });
+        };
+        
+        //级联查询可用的常用备注
+        var getRegressHints = function (regressCode, callback) {
+            if (typeof(regressCode) != undefined){
+                ajax.ajaxJson(url + '/orders/regress/hints/' + regressCode, 'get', callback)
+            }
+        }
+
+        //组网单退单初始化的值
+        var getRegressNetInit = function (data, config) {
+            $('#schedul').on('change', '.selectedChange', function () {
+                data.bean.regressType = $(this).val();
+                data.bean.reasonCode = null;
+                $('#schedul').html(Util.hdb.compile(config.tpl)(data));
+            });
+        }
+
+        //iptv级联操作,其他时显示输入框选项
+        regressIptvChange = function(){
+            regressIptvRemarkHide();
+            $('#schedul').on('change', '[name="reasonCode"]', function () {
+                regressIptvRemarkHide();
+            });
+        }
+        regressIptvRemarkHide = function(){
+            if($('[name="reasonCode"] :selected').val() =="200606"){
+                $('.sechedul_remark').css("display", "table-cell"); 
+            }else{
+                $('#sechedul_remark').val("");
+                $('.sechedul_remark').css("display", "none");
+            }
+        }
+
+        //拿到数据和初始化配置后进行地市，区县，班组的级联显示
+        var getGroup = function (data, config) {
+            MyUtils.getCity({}, {
+                el: '#schedul .cityCode',
+                select: true,
+                topValue: '请选择',
+                defaultLinkedValue: config.cityCode ? config.cityCode : ''
+            });
+        }
+
+        //移除报结时的获取光功率
+        var removeGetOnuPower = function () {
+            $('#getOnuPower').remove();
+        }
+        /**
+         * 查询光功率：定单质检时使用
+         * @param {Object} draftId
+         */
+        var getOnuPower = function (draftId, orderType) {
+            loadingMtnDistricts = MyUtils.getLoading( $("body"), "300", "加载中...", "loadingInfo");
+            if(orderType && (7 == orderType)){ //满意度修复单获取测试接口
+                var _sendUrl = url + "/orders/offlineComplain/onuPowers/"+ draftId;
+            }else{
+                var _sendUrl = url + "/orders/onuPowers?draftId=" + draftId;
+            }
+            ajax.ajaxJson( _sendUrl, 'get', function (d) {
+                loadingMtnDistricts.destroy();
+                if (d && d.returnCode == 0) {
+                    $('#onuPower').attr('name', 'onuPower').val(d.bean);
+                    $('[name = onuPower]').val(d.bean);
+                    MyUtils.propMessage("光功率：" + (d.bean ? d.bean : "无"), true);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+
+        var getRadiusLog = function (draftId) {
+            ajax.ajaxJson(url + "/webOrders/radius/authInfos/" + draftId, 'get', function (d) {
+                if (d && d.returnCode == 0) {
+                    // $('#onuPower').attr('name', 'onuPower').val(d.bean);
+                    $('[name = radiusLog]').val(d.bean);
+                    // MyUtils.propMessage("光功率：" + (d.bean ? d.bean : "无"));
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+        //投诉单退单获取上网记录/最后上线时间
+        var get_regressEoms_radiusLog = function (draftId) {
+            ajax.ajaxJson(url + "/webOrders/radiusRegress/authInfos/" + draftId, 'get', function (d) {
+                if (d && d.returnCode == 0) {
+                    $('[name = radiusLog]').val(d.bean.radiusLog);
+                    $('[name = lastOnlineTime]').val(d.bean.lastOnlineTime);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+
+        //诊断测试接口更新
+        var diagnoseModel = {};
+        var getWbdiagnose = function (draftId) {
+            ajax.ajaxJson(url + "/webComprehensive/wbdiagnose/" + draftId, 'get', diagnoseModel, function (d) {
+                if (d && d.returnCode == 0) {
+                    MyUtils.propMessage("操作成功", true);
+                    diagnoseModel = d.bean;
+                    $('#secondSplitterName').html(diagnoseModel.secondSplitterName);
+                    $('#splitterName').html(diagnoseModel.splitterName);
+                    $('#onuPW').html(diagnoseModel.onuPW);
+                    $('#acctOnlineState').html(diagnoseModel.acctOnlineState);
+                    $('#acctAuthState').html(diagnoseModel.acctAuthState);
+                    $('#acctAuthError').html(diagnoseModel.acctAuthError);
+                    $('#onuState').html(diagnoseModel.onuState);
+                    $('#diagnoseModelonuPower').html(diagnoseModel.onuPower);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+        //诊断测试接口保存
+        var updateWbdiagnose = function (draftId, userAcct) {
+            var data = diagnoseModel;
+            data.draftId = draftId;
+            data.acct = userAcct;
+            ajax.ajaxJson(url + "/webComprehensive/wbdiagnoseinfo/save", 'post', data, function (d) {
+                if (d && d.returnCode == 0) {
+                    MyUtils.propMessage("操作成功", true);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+
+        //质差诊断信息-重新诊断
+        var materialDiffTestChecking = function (draftId, userAcct) {
+            if(userAcct && userAcct!=""){
+                var _sendUrl = url + "/orders/getDiagnosisRecord/"+userAcct+"/"+draftId;
+                var _sendData = {};
+                MyUtils.submitAjax(_sendUrl, _sendData, 'get' ,function(data){
+                    if (data.returnCode == 0) {
+                        $("#isBadUser").html(data.bean.isBadUser);
+                        $("#isWifiWeek").html(data.bean.isWifiWeek);
+                        $("#isBadUserNew").html(data.bean.isBadUserNew);
+                        $("#badUserDetails").html(data.bean.badUserDetails);
+                        $("#zcyhRemark").html(data.bean.remark);
+                    }
+                });
+            }else{
+                 MyUtils.propMessage("缺少宽带信息", true);
+            }
+        };
+
+        //测速速率
+        var getSpeedTest = function (draftId, downloadUrl, bandwidth, orderType) {
+            loadingMtnDistricts = MyUtils.getLoading( $("body"), "300", "加载中...", "loadingInfo");
+            if(orderType && (7 == orderType)){ //满意度修复单获取测试接口
+                var _sendUrl = url + "/orders/offlineComplain/speedTest/";
+            }else{
+                var _sendUrl = url + "/orders/speedTestByRms/";
+            }
+            ajax.ajaxJson( _sendUrl, 'get', {"draftId": draftId, "downloadUrl": downloadUrl}, function (d) {
+                loadingMtnDistricts.destroy();
+                if (d && d.returnCode == 0) {
+                    var downloadMbps = d.bean.downloadMbps;
+                    var speedQualified = "";   
+                    var speedQualifiedText = "";
+                    if(bandwidth){
+                        speedQualified = (downloadMbps*10/parseFloat(bandwidth)) >= 0.9 ? "1" : "0";
+                        speedQualifiedText = speedQualified == "1" ? "达标" : "不达标";
+                    }  
+                    if(orderType == 7){ //满意度修复单用接口返回的达标不达标
+                        speedQualified = d.bean.speedQualified;
+                        speedQualifiedText = speedQualified == "1" ? "达标" : "不达标";
+                    } 
+                    var speed = (downloadMbps != undefined ? (downloadMbps*10).toFixed(2) : "");
+                    $('#speedTestOrder').val(speed);    //详情页测速
+                    $('#speedTestText').val(speed);     //报结页测速
+                    $('#speedTest').val(downloadMbps);  //报结页测速
+                    $("#speedQualifiedOrder").val(speedQualifiedText);  //详情页测速是否达标
+                   
+                    $("#speedQualifiedText").val(speedQualifiedText);   //报结页是否达标
+                    $("#speedQualified").val(speedQualified);           //报结页是否达标  0和1
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+
+        /**
+         * 工单质检初始化
+         * @param {Object} draftId
+         * @param {Object} config
+         */
+        var getOrderCheck = function (draftId, config) {
+            ajax.getRender(url + '/webOrders/check/' + draftId, {}, config);
+        };
+
+        /**
+         * 工单质检提交
+         * @param {Object} data
+         */
+        var orderCheckSubmit = function (data) {
+            ajax.ajaxJson(url + '/webOrders/check', 'post', data, function (d) {
+                if (d && d.returnCode == 0) {
+                    MyUtils.propMessage("操作成功", true);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+        // 录音回听的url
+        var orderRecordUrl = ajax.appendToken(url + "/orders/record");
+        // 后台下载录音文件的地址
+        var getUpLoadRecordUrl = function (upLoadRecordUrl) {
+            var internetUrl = url;
+            if (internetUrl == 'http://180.168.70.189:50083') {//上海测试环境
+                internetUrl = constans.internetUrl;
+            }
+            return ajax.appendToken(internetUrl + "/push/record/download?fileUrl=" + upLoadRecordUrl, true);
+        }
+        // 导出录音文件
+        var getOrderRecordExportUrl = function (data) {
+            ajax.downloadFile(url + '/orders/record/export' + "?" + $.param($.extend({}, {
+                isExportAllData: true
+            }, data)));
+        };
+        // 工单矩阵数据导出
+        var getOrderMatrixExportUrl = function (data) {
+            ajax.downloadFile(url + '/webOrders/orderMatrix/export' + "?" + $.param($.extend({}, {
+                isExportAllData: true
+            }, data)));
+        };
+        // 工单矩阵下钻清单导出
+        var getOrderMatrixDetailExportUrl = function (data) {
+            ajax.downloadFile(url + '/webOrders/orderMatrix/detail/export' + "?" + $.param($.extend({}, {
+                isExportAllData: true
+            }, data)));
+        };
+
+        var handleOrderAbnormal = function (draftId, abnormityCode, list, data, isSnValidate) {
+            ajax.ajaxJson(url + '/webOrders/abnormity?draftId=' + draftId + "&abnormityCode=" + abnormityCode + isSnValidate, 'post', {}, function (d) {
+                if (d && d.returnCode == 0) {
+                    MyUtils.propMessage("处理成功");
+                    list.search(data, list.pageIndex);
+                }else if(d.returnCode == 'ES002') {
+                    var dialog = new Dialog({
+                        mode: 'confirm',
+                        cancelDisplay: true,
+                        content: d.returnMessage,
+                        ok:function(){
+                            handleOrderAbnormal(draftId, abnormityCode, list, data, "&isSnValidate=1&validateEomsStatus=0");
+                        },
+                        cancel: function () { console.log('点击了取消按钮') }, 
+                    });
+                }else if(['SN1008', 'SN1010', 'SN1014', 'SN1016', 'SN1018', 'SN1020', 'SN1022', 'SN1024', 'SN1026'].includes(d.returnCode)){
+                    var dialog = new Dialog({
+                        mode: 'confirm',
+                        cancelDisplay: true,
+                        content: d.returnMessage,
+                        ok:function(){
+                            handleOrderAbnormal(draftId, abnormityCode, list, data, "&isSnValidate=0&validateEomsStatus=0");
+                        },
+                        cancel: function () { console.log('点击了取消按钮') }, 
+                    });
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+
+        //异常改约操作按钮
+        var orderChangingException = function (item, list , data) {
+            ajax.ajaxJson(url + '/webOrders/handAppointChange', 'post', item , function (d) {
+                if (d && d.returnCode == 0) {
+                    MyUtils.propMessage("操作成功", true);
+                    if (d.bean) {//成功后刷新列表页
+                        list.search(data);
+                    }
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+
+        //异常收费处理操作按钮
+        var handleChargeAbnormal = function (draftId, operName, list, data) {
+            ajax.ajaxJson(url + '/webOrders/orderFeeAbnormity/handle?draftId=' + draftId + "&operName=" + operName, 'post', {}, function (d) {
+                if (d && d.returnCode == 0) {
+                    MyUtils.propMessage("处理成功");
+                    list.search(data, list.pageIndex);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+
+        //集中预约退单
+        var regressionToCenter = function (draftId, list, data) {
+            ajax.ajaxJson(url + '/webOrders/regression/rc', 'post', {draftId:draftId}, function (d) {
+                if (d && d.returnCode == 0) {
+                    if (d.bean.success && list) {//成功后刷新列表页
+                        list.search(data, list.pageIndex);
+                    }
+                    MyUtils.propMessage(d.bean.remark, true);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+
+        //集中预约派单
+        var dispatchReservationCenter = function (draftId, list, data) {
+            ajax.ajaxJson(url + '/webOrders/dispatchReservationCenter?draftId=' + draftId, 'post', {}, function (d) {
+                if (d && d.returnCode == 0) {
+                    if (d.bean.success && list) {//成功后刷新列表页
+                        list.search(data, list.pageIndex);
+                    }
+                    MyUtils.propMessage(d.bean.remark, true);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+
+        //获取 装机单/全路由单 报结初始化的值
+        var getOpenOrderReportInit = function (data , urlstr ) {
+            ajax.ajaxJson(url + '/webOrders/'+ urlstr + "/" + data.option.draftId, 'get', {}, function (d) {
+                if (d && d.returnCode == 0) {
+                    if (d.bean.difficultyMust) {
+                        $('#difficulty').css('display', '')
+                        var difficultyDom = '';
+                        var difficultyOptions = d.bean.difficultyOptions;
+                        for (var i = 0; i < difficultyOptions.length; i++) {
+                            difficultyDom += '<option value="' + difficultyOptions[i].value + '" ' + (d.bean.difficulty == difficultyOptions[i].value ? 'selected' : '') + '>' + difficultyOptions[i].name + '</option>'
+                        }
+                        $('#difficultySelect').html(difficultyDom);
+                    }
+                    $('#onuPower').val(d.bean.onuPower);
+                    $('#mustRadiusLog').val(d.bean.mustRadiusLog);
+                    //初始化测速是否达标
+                    var downloadMbps = d.bean.downloadMbps;
+                    $('#speedTestText').val(downloadMbps != undefined ? (downloadMbps*10).toFixed(2) : "");
+                    $('#speedTest').val(downloadMbps);
+                    var speedQualified = d.bean.speedQualified;
+                    if(speedQualified == 1){
+                        $('#speedQualifiedText').val("达标");
+                        $('#speedQualified').val(1);
+                    }else if(speedQualified === 0 || speedQualified === "0"){
+                        $('#speedQualifiedText').val("不达标");
+                        $('#speedQualified').val(0);
+                    }
+                    //有成功上网记录
+                    $('#radiusLog').val(d.bean.radiusLog);
+                    //初始化 提速工单 是否更换ONU的值
+                    $('#isChangeOnu').val(d.bean.isChangeOnu);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        }
+
+        //获取组网单报结初始化的值
+        var getNetWorkingtInit = function (data) {
+            ajax.ajaxJson(url + '/webOrders/report/netWorking/' + data.option.draftId, 'get', {}, function (d) {
+                if (d && d.returnCode == 0) {
+                    $('#sechedul_remark').val(d.bean.remark);
+                    //初始化测速信息，组网单测速是否达标显示为空
+                    var downloadMbps = d.bean.downloadMbps;
+                    $('#speedTestText').val(downloadMbps != undefined ? (downloadMbps*10).toFixed(2) : "");
+                    $('#speedTest').val(d.bean.downloadMbps);
+                    var speedQualified = d.bean.speedQualified;
+                    if(speedQualified == 1){
+                        $('#speedQualifiedText').val("达标");
+                        $('#speedQualified').val(1);
+                    }else if(speedQualified === 0 || speedQualified === "0"){
+                        $('#speedQualifiedText').val("不达标");
+                        $('#speedQualified').val(0);
+                    }
+                    $('[name=onuPower]').val(d.bean.onuPower);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        }
+
+        //获取安防单报结初始化的值
+        var getSafetyInit = function (data , urlstr) {
+            ajax.ajaxJson(url + '/webOrders/'+ urlstr + "/" + data.option.draftId, 'get', {}, function (d) {
+                if (d && d.returnCode == 0) {
+                    $('#sechedul_remark').val(d.bean.remark);
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        }
+
+        //转派初始化回调方法
+        var getTransferInit = function(data, config){
+            if(config.orderState !="待上门"){
+                return false;
+            }
+            $('#schedul [name="mtnUserId"]').unbind().on('change', function () {
+                var mtnUserId = $('#schedul [name="mtnUserId"]').val();
+                var taskDay = $("#totalTime").html().split(" ")[0];
+                if( mtnUserId == ""){
+                     $("#userWorkTotal").html("");
+                }else if($.trim(taskDay) == ""){
+                    $("#userWorkTotal").html("装维已排工作量:0");
+                }else{
+                    var data = { "mtnUserId" : mtnUserId, "taskDay": taskDay};
+                    ajax.ajaxJson(url + '/webOrders/schedule/mtnUser/workload', 'get', data, function (d) {
+                        if (d && d.returnCode == 0) {
+                            $("#userWorkTotal").html("装维已排工作量:"+d.bean );
+                        } else {
+                            MyUtils.propMessage(d.returnMessage, true);
+                        }
+                    });
+                }
+            });
+        }
+
+        //已阅未阅状态修改
+        var isRead = function (draftId, callback) {
+            ajax.ajaxJson(url + '/webOrders/read', 'post', {draftId:draftId}, function (d) {
+                if (d && d.returnCode == 0) {
+                    MyUtils.propMessage("您已处理并标识为已阅",  true);
+                    if (d.bean) {//成功后刷新列表页
+                        callback && callback();
+                    }
+                } else {
+                    MyUtils.propMessage(d.returnMessage, true);
+                }
+            });
+        };
+        
+        //调云控宝拨打电话
+        function callCould(phoneNum, draftId) {
+            ajax.ajaxJson(url + '/call/cloud?draftId='+draftId+'&destNumber='+phoneNum, "get", function (data) {
+                if (data.returnCode == 0) {
+                    MyUtils.propMessage("拨打电话成功，请等待回拨", true);
+                } else {
+                    MyUtils.propMessage('拨打电话失败，请检测网络状况并重试', true);
+                }
+            });
+        }
+
+        //宽带类开通单退单审核提示需求
+        var getOnlineLastTime = function (json, okFun, cancelFun) {
+            ajax.ajaxJson(url + '/webOrders/getOnlineLastTime/'+json.id+'/'+json.userAcct, "get", function (data) {
+                if (data.returnCode == 0) {
+                    okFun && okFun();
+                } else {
+                    MyUtils.okCancelMessage(data.returnMessage, 170, '是', '否', okFun, cancelFun);
+                }
+            });
+        };   
+
+        return {
+            getWorkflowGraph: getWorkflowGraph,
+            webOrderUrl: webOrderUrl,
+            getOrderMessage: getOrderMessage,
+            getOrderOperationInit: getOrderOperationInit,
+            getMtnGroupLoad: getMtnGroupLoad,
+            getCustCareSmsScene: getCustCareSmsScene,
+            orderMatrixUrl: orderMatrixUrl,
+            getOrderMatrixExportUrl: getOrderMatrixExportUrl,
+            getOrderMatrixDetailExportUrl: getOrderMatrixDetailExportUrl,
+            getComplainTypeTree: getComplainTypeTree,
+            operationSubmit: operationSubmit,
+            getOnuPower: getOnuPower,
+            getSpeedTest: getSpeedTest,
+            getOrderCheck: getOrderCheck,
+            orderCheckSubmit: orderCheckSubmit,
+            orderRecordUrl: orderRecordUrl,
+            custCareSmsSceneSubmit: custCareSmsSceneSubmit,
+            getOrderRecordExportUrl: getOrderRecordExportUrl,
+            getOrderExceptionUrl: orderExceptionUrl,
+            getChargeExceptionUrl: chargeExceptionUrl,
+            getOrderChangingExceptionUrl: orderChangingExceptionUrl,
+            getUpLoadRecordUrl: getUpLoadRecordUrl,
+            orderMatrixDetailUrl: orderMatrixDetailUrl,
+            handleOrderAbnormal: handleOrderAbnormal,
+            orderChangingException: orderChangingException,
+            handleChargeAbnormal: handleChargeAbnormal,
+            fileUploadUrl: fileUploadUrl,
+            getRadiusLog: getRadiusLog,
+            get_regressEoms_radiusLog: get_regressEoms_radiusLog,
+            dispatchReservationCenter: dispatchReservationCenter,
+            getOpenOrderReportInit: getOpenOrderReportInit,
+            regressionToCenter:regressionToCenter,
+            isRead : isRead,
+            callCould : callCould,
+            getOnlineLastTime : getOnlineLastTime,
+        };
+    });

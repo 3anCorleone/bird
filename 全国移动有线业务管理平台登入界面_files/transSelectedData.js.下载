@@ -1,0 +1,16 @@
+define(
+	function() {
+		//将groupSearchForm取到的数据中的selected数据进行转化
+		var changeSelectedData = function(formDom, data) {
+			var $select = $(formDom + ' form select');
+			$select.each(function() {
+				var $this = $(this);
+				data[$this.attr('name')] = $this.val() == 'null' ? '' : $this.val();
+			})
+			return data;
+		}
+
+		return {
+			change: changeSelectedData
+		}
+	});

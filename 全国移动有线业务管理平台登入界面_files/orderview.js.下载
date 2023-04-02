@@ -1,0 +1,1029 @@
+define([
+		'Util',
+		'list',
+		'date',
+		'text!tpl/order/orderview.tpl',
+		'text!tpl/order/orderquerySelect.tpl',
+		'text!tpl/order/regionSelect.tpl',
+		'text!tpl/order/operation/custCareMessage.tpl',
+		'text!tpl/order/operation/orderCallCould.tpl',
+		'../api/order',
+        '../api/utils',
+        '../api/constans',
+		'dialog',
+		'select',
+		'validator',
+		'lib/requirejs/css.min!assets/css/teamInfo.css',
+		'lib/requirejs/css.min!assets/css/orderview.css',
+	],
+	function(Util, List, MyDate, Tpl, orderTplSelect, regionSelect, custCareMessageTpl, orderCallCouldTpl, orderAPI, myUtils,constans, dialog, select, Validator) {
+        var $el, indexModule, param;
+		return function(_indexModule, _param) {
+			//将根节点赋值给接口
+			this.content = $(Tpl);
+			//页面渲染后执行函数
+			this.renderCallback = init;
+		};
+
+		function init() {
+            //查询条件动态生成
+            var json = constans.getOrderQuery()
+            Util.hdb.registerHelper("isDefaultSelecte", function(index, defaultIndex, options) {
+                if(index == defaultIndex) {
+                    return options.fn(this);
+                }
+            });
+            $('#mytab').html(Util.hdb.compile(orderTplSelect)(json));
+			//页面渲染后执行函数-业务代码入口
+			var searchJsonInputHidden = $('#searchOrderJson').val(); //获取上一次的查询条件
+			if(searchJsonInputHidden) {
+				searchJsonInputHidden = JSON.parse(searchJsonInputHidden);
+				if(searchJsonInputHidden.matchContent) {
+					$('#condition').val(searchJsonInputHidden.matchContent).css('color', "#000");
+					$('#matchType').val(searchJsonInputHidden.matchType);
+					$('#dateType').val(searchJsonInputHidden.dateType);
+					if(searchJsonInputHidden.dateType == "2") {
+						$('.datePanelDateType').show();
+						getDateType('#datePanelDateType');
+					} else {
+						$('.datePanelDateType').hide();
+					}
+					if(searchJsonInputHidden.dateType > 0) {
+						$("#matchType option[value='2']").remove();
+						$("#matchType option[value='3']").remove();
+						$("#condition").attr("placeholder", "请输入完整的定单号、用户账号、手机号查询").attr("title", "请输入完整的定单号、用户账号、手机号查询");
+					}
+				}
+			}
+			var list;
+			//获取地市的下拉选
+			myUtils.getCity({}, {
+				el: $('#cityCode'),
+				name: 'cityCodeList',
+				select: true,
+				topValue: '全部',
+				defaultLinkedValue: searchJsonInputHidden ? searchJsonInputHidden.cityCodeList : ''
+			});
+			//获取厂商信息,方便后续使用
+			myUtils.getEnumDatas(true);
+			//地市、班组联动
+			$('#regions').on('change', '.regions', function() {
+				var $this = $(this);
+				var index = $this.children(':selected').attr('index');
+				var cityCode = $this.children(':selected').attr('cityCode');
+				var countyCode = $this.children(':selected').attr('countyCode');
+				if(index) {
+					if(index == -1) {
+						$('#countyCode').html("");
+						$('#gridCode').html("");
+						$('#mtnGroups').html("");
+					} else {
+						$('#gridCode').html("");
+						$('#mtnGroups').html("");
+						myUtils.getCounty(index, {
+							el: $('#countyCode'),
+							name: 'countyCodeList',
+							select: true,
+							topValue: '全部',
+							defaultLinkedValue: searchJsonInputHidden ? searchJsonInputHidden.countyCodeList : ''
+						});
+					}
+				} else if(cityCode) {
+					var countyCode = $this.children(':selected').attr('countyCode');
+					if(cityCode == -1) {
+						$('#gridCode').html("");
+						$('#mtnGroups').html("");
+					} else {
+						$('#mtnGroups').html("");
+						myUtils.getMtnGrids({
+							limit: 1000,
+							cityCode: cityCode,
+							countyCode: countyCode
+						}, {
+							el: $('#gridCode'),
+							select: true,
+							topValue: '全部',
+							defaultLinkedValue: searchJsonInputHidden ? searchJsonInputHidden.gridId : ''
+						});
+					}
+				} else if(countyCode) {
+					var gridId = $this.children(':selected').attr('gridId');
+					if(countyCode == -1) {
+						$('#mtnGroups').html("");
+					} else {
+						var cityCode = $("[name=cityCodeList]").val();
+						var countyCode = $("[name=countyCodeList]").val();
+						myUtils.getMtnGroups({
+							limit: 1000,
+							cityCode: cityCode,
+							countyCode: countyCode,
+							gridId: gridId,
+						}, {
+							el: $('#mtnGroups'),
+							select: true,
+							topValue: '全部',
+							defaultLinkedValue: searchJsonInputHidden ? searchJsonInputHidden.mtnGroupId : ''
+						});
+					}
+				} 
+			});
+
+
+			//调用时间组件生成开始时间和结束时间
+            var startDate = searchJsonInputHidden.startSendTime;
+            var endDate =  searchJsonInputHidden.endSendTime;
+			//生成一个带开始和结束时间的时间组件
+			function getNewData(dom) {
+				var data = new MyDate({
+					el: $(dom),
+					label: '<span style="color:red">请选择</span>',
+					double: {
+						start: {
+							name: 'startSendTime',
+							isReadOnly: true,
+							format: 'yyyy-MM-dd',
+							defaultValue: searchJsonInputHidden.orderTime == '自定义时间' ? searchJsonInputHidden.startSendTime : '', //默认日期值
+							type: 'date',
+							done: function(datas) {
+								data.options.double.end.min = datas;
+								startDate = datas;
+							}
+						},
+						end: {
+							name: 'endSendTime',
+							isReadOnly: true,
+							format: 'yyyy-MM-dd',
+							defaultValue: searchJsonInputHidden.orderTime == '自定义时间' ? searchJsonInputHidden.endSendTime : '', //默认日期值
+							istoday: true,
+							type: 'date',
+							done: function(datas) {
+								data.options.double.start.max = datas;
+								endDate = datas;
+							}
+						}
+					}
+				});
+			};
+			//生成一个带开始和结束时间的时间组件
+			var finalApptTime_sta = searchJsonInputHidden.startFinalApptTime;
+			var finalApptTime_end = searchJsonInputHidden.endFinalApptTime;
+			function getfinalApptTime(dom) {
+				var data = new MyDate({
+					el: $(dom),
+					label: '<span style="color:red">请选择</span>',
+					double: {
+						start: {
+							name: 'startFinalApptTime',
+							isReadOnly: true,
+							format: 'yyyy-MM-dd',
+							defaultValue: searchJsonInputHidden.finalApptTime == '自定义时间' ? searchJsonInputHidden.startFinalApptTime : '', //默认日期值
+							type: 'date',
+							done: function(datas) {
+								data.options.double.end.min = datas;
+								finalApptTime_sta = datas;
+							}
+						},
+						end: {
+							name: 'endFinalApptTime',
+							isReadOnly: true,
+							format: 'yyyy-MM-dd',
+							defaultValue: searchJsonInputHidden.finalApptTime == '自定义时间' ? searchJsonInputHidden.endFinalApptTime : '', //默认日期值
+							istoday: true,
+							type: 'date',
+							done: function(datas) {
+								data.options.double.start.max = datas;
+								finalApptTime_end = datas;
+							}
+						}
+					}
+				});
+			};
+			//生成一个带开始和结束时间的时间组件
+			var dateType_sta = searchJsonInputHidden.startDateType;
+			var dateType_end = searchJsonInputHidden.endDateType;
+			function getDateType(dom) {
+				var data = new MyDate({
+					el: $(dom),
+					label: '<span style="color:red">请选择</span>',
+					double: {
+						start: {
+							name: 'startDateType',
+							isReadOnly: true,
+							format: 'yyyy-MM-dd',
+							defaultValue: searchJsonInputHidden.dateType == '2' ? searchJsonInputHidden.startDateType : '', //默认日期值
+							type: 'date',
+							done: function(datas) {
+								data.options.double.end.min = datas;
+								dateType_sta = datas;
+							}
+						},
+						end: {
+							name: 'endDateType',
+							isReadOnly: true,
+							format: 'yyyy-MM-dd',
+							defaultValue: searchJsonInputHidden.dateType == '2' ? searchJsonInputHidden.endDateType : '', //默认日期值
+							istoday: true,
+							type: 'date',
+							done: function(datas) {
+								data.options.double.start.max = datas;
+								dateType_end = datas;
+							}
+						}
+					}
+				});
+			};
+
+			//条件筛选的查询
+			$('#mytab').on('click', '.query_add', function() {
+				var $obj = $(this);
+				var key = $obj.attr('key');
+				var value = $obj.attr('data-value');
+				var selected = $('[name=' + key + ']');
+				var oldValue = selected.val();
+				var oldArr = oldValue.split(",");
+				var indexOfValue = oldArr.indexOf(value);
+				if(indexOfValue == -1) {
+					oldValue += value + ',';
+					$obj.addClass('active');
+				} else {
+					oldArr.splice(indexOfValue,1);
+					oldValue = oldArr.join(",")
+					$obj.removeClass('active');
+				}
+				selected.val(oldValue);
+				//定时十五分钟刷新页面
+				//setInterval_refresh();
+			});
+
+			$('#mytab').on('click', '.query_filter', function() { //只能选择一个的条件
+				var $obj = $(this);
+				var key = $obj.attr('key');
+				if(key == 'orderTime' && $obj.html() == '自定义时间') {
+					$('.datePanel').show();
+					//调用时间组件
+					getNewData('#datePanel');
+				} else if (key == 'orderTime' && $obj.html() != '自定义时间'){
+					$('.datePanel').hide();
+				}
+				if(key == 'finalApptTime' && $obj.html() == '自定义时间') {
+					$('.datePanelFinalAppt').show();
+					getfinalApptTime('#datePanelFinalAppt');
+				} else if (key == 'finalApptTime' && $obj.html() != '自定义时间'){
+					$('.datePanelFinalAppt').hide();
+				}
+
+				var value = $obj.attr('data-value');
+				var selected = $('[name=' + key + ']');
+				var oldValue = selected.val();
+				if(oldValue == value) {
+					$obj.removeClass('active');
+					$('[name=' + key + ']').val("");
+				} else {
+					$('[name=' + key + ']').val(value);
+					$obj.addClass('active').parent().siblings().find('a').removeClass('active');
+				}
+				//必须选择一个时间点，不查全部。若无，置为默认的
+				if($('[name="orderTime"]').val() == '') {
+					$('#order_search_form table tr:first .defaultSelected').click();
+				}
+				//定时十五分钟刷新页面
+				//setInterval_refresh();
+			});
+			
+			//条件筛选的查询
+			$('#mytab').on('click', '.query_compose', function() {
+				var $obj = $(this);
+				var key = $obj.attr('key');
+				var value = $obj.attr('data-value');
+				var selected = $('[name=' + key + ']');
+				var oldValue = selected.val();
+				var oldArr = oldValue.split(",");
+				var indexOfValue = oldArr.indexOf(value);
+				if(value == "todo"){
+					if(indexOfValue == -1) {
+						oldValue =  value +',' +oldValue;
+						$obj.addClass('active');
+					} else {
+						oldArr.splice(indexOfValue,1);
+						oldValue = oldArr.join(",")
+						$obj.removeClass('active');
+					}
+				}else{
+					if(indexOfValue == -1) {
+						$obj.addClass('active').parent().siblings().find('a').removeClass('active');
+						if(oldArr.indexOf("todo") != -1) {
+							oldValue = 'todo,'+value +",";
+							$obj.parent().parent().children(":eq(1)").children(":first").addClass('active');
+						}else{
+							oldValue = value + ",";
+						}
+					} else {
+						if(oldArr.indexOf("todo") != -1){
+							oldValue = "todo,"
+						}else{
+							oldValue = "";
+						}
+						$obj.removeClass('active');
+					}
+				}
+				selected.val(oldValue);
+				//定时十五分钟刷新页面
+				//setInterval_refresh();
+			});
+
+			$('.soso').on('change', '#dateType', function() {
+				var $this = $(this);
+				if($this.val() == '2') {
+					$('.datePanelDateType').show();
+					getDateType('#datePanelDateType');
+				} else {
+					$('.datePanelDateType').hide();
+				}
+				if($this.val() > 0) {
+					$("#matchType option[value='2']").remove();
+					$("#matchType option[value='3']").remove();
+					$("#condition").attr("placeholder", "请输入完整的定单号、用户账号、手机号查询").attr("title", "请输入完整的定单号、用户账号、手机号查询");
+				} else {
+					$('#matchType').append("<option value= " + 2 + ">用户姓名</option>").append("<option value= " + 3 + ">地址</option>");
+					$("#condition").attr("placeholder", "定单号、用户帐号、用户姓名、地址、手机号").attr("title", "定单号、用户帐号、用户姓名、地址、手机号");
+				}
+			});
+			$('.soso-btn').on('click', function() {
+				searchJson = {};
+				var mergeParams = {
+					matchContent: $('#condition').val(),
+					matchType: $('#matchType').val(),
+					dateType: $('#dateType').val()
+				}
+				if($("#dateType").val()== "2"){
+					if(!compare_sta_end_time(dateType_sta, dateType_end, false)){
+						return;
+					};
+					searchJson = $.extend({}, {
+						startSendTime: dateType_sta,
+						endSendTime: dateType_end,
+						startDateType: dateType_sta,
+						endDateType: dateType_end,
+					}, mergeParams);
+				} else {
+					searchJson = $.extend({}, {}, mergeParams);
+				}
+				$('#searchOrderJson').val(JSON.stringify(searchJson));
+				//日期插件的日期格式不带时分秒，传给服务器需要
+				if (searchJson.startSendTime) {
+					searchJson.startSendTime = searchJson.startSendTime + ' 00:00:00';
+				}
+				if (searchJson.endSendTime) {
+					searchJson.endSendTime = searchJson.endSendTime + ' 23:59:59';
+				}
+				list.search(searchJson);
+			});
+			//提交
+			$('#ok').on('click', function() {
+				var $time = $('[name=orderTime]')
+				var searchForm = $('#order_search_form').serialize();
+				searchForm = decodeURIComponent(searchForm, true);
+				var search = searchForm.split('&');
+				searchJson = {dateType : 0};
+				for(var i = 0; i < search.length; i++) {
+					var temp = search[i].split('=');
+					if(temp[0] != 'matchType' && temp[0] != 'matchContent' && temp[0] != "dateType" && temp[0] !="startDateType" && temp[0] !="endDateType") { //排除掉关键字搜索
+						var value = temp[1];
+						if(value.indexOf(",") > -1) {
+							value = value.substring(0, value.length - 1);
+						}
+						searchJson[temp[0]] = value;
+					}
+				}
+				if($time.val() == '自定义时间') {
+					if(!compare_sta_end_time(searchJson.startSendTime , searchJson.endSendTime , true)){
+						return;
+					};
+				}
+				var $finalApptTime = $('[name=finalApptTime]')
+				if($finalApptTime.val() == '自定义时间') {
+					if(!compare_sta_end_time(searchJson.startFinalApptTime, searchJson.endFinalApptTime , true)){
+						return;
+					};
+				}
+				if($time.val() != '' && $time.val() != '自定义时间') {
+					searchJson.startSendTime = getSendTime($time);
+					searchJson.endSendTime = ""; // 不是自定义时间，则将结束时间重置为空
+				}
+				if($finalApptTime.val() != '' && $finalApptTime.val() != '自定义时间') {
+					searchJson.startFinalApptTime = getSendTime($finalApptTime);
+					searchJson.endFinalApptTime = ""; // 不是自定义时间，则将结束时间重置为空
+				}
+				var searchDom = [];
+				$('#order_search_form .active').each(function() {
+					var $this = $(this);
+					searchDom.push({
+						key: $this.attr('key'),
+						text: $this.text()
+					});
+                });
+				$('#searchOrderDom').val(JSON.stringify(searchDom));
+				$('#searchOrderJson').val(JSON.stringify(searchJson));
+				if (searchJson.startSendTime) {
+					searchJson.startSendTime = searchJson.startSendTime + ' 00:00:00';
+				}
+				if (searchJson.endSendTime) {
+					searchJson.endSendTime = searchJson.endSendTime + ' 23:59:59';
+				}
+				if (searchJson.startFinalApptTime) {
+					searchJson.startFinalApptTime = searchJson.startFinalApptTime + ' 00:00:00';
+				}
+				if (searchJson.endFinalApptTime) {
+					searchJson.endFinalApptTime = searchJson.endFinalApptTime + ' 23:59:59';
+				}
+				//组合查询重新赋值
+				if(searchJson.todoState){
+					var todoState = searchJson.todoState;
+					var arr_val = todoState.split(",");
+					if(arr_val.indexOf("todo")>-1){
+						searchJson.todoState = "todo";
+						searchJson.isRead = todoState.split("todo,")[1];
+					}else{
+						searchJson.todoState = "";
+						searchJson.isRead = todoState;	
+					} 
+				}
+				list.search(searchJson);
+			});
+			/**
+			 * 重置按钮点击事件
+			 */
+            $('#reset').on('click', function () {
+                //将表单里的隐藏域里面的值清空
+                $('#order_search_form [type="hidden"]').val('');
+                //将点中的样式清空
+                $('#order_search_form .active').removeClass('active');
+                //触发带有默认样式的点击事件
+                $('#order_search_form .defaultSelected').click();
+                //将地市复原
+                $('#cityCode select').val('').trigger('change');
+				//定时十五分钟刷新页面
+				//setInterval_refresh();
+            });
+            //调用list组件分页显示订单
+            var config = {
+                el: $('#orders'),
+                height: 'auto',
+                ajax: { //所有jquery.ajax的配置项均可配置，这些配置将替换底层组件的配置，慎用
+                    method: 'get'
+                },
+                field: {
+                    items: [{
+                        text: '定单信息',
+                        // title: 'draftId',
+                        name: "firstModule",
+                        width: 405,
+                        className: 'orderMessage',
+                        click: function (e, item) {
+                            console.log(item)
+                        },
+                        render: function (item, val) {
+                        	if(item.firstModule.orderType==7){
+                        		item.actType='满意度修复';
+                        	}
+							var ul_html = '<ul class="order_content p20">';
+							if(item.isRead==1){
+								ul_html = '<ul class="order_content p20 c-006600">';
+							};
+                            var cpn = item.cpn;
+                            if (cpn) {//若为驻地网定单
+								ul_html = '<ul class="order_content p20" style="padding-top:9px;">';
+								if(item.isRead==1){ 
+									ul_html = '<ul class="order_content p20 c-006600" style="padding-top:9px;">';
+								};
+                                return (
+                                    '<div class="header header1"><span>' + item.actType + '[' + val.orderId + ']</span></div>' +
+                                    ul_html + '<li>故障主题：<span>' + cpn.title + '</span></li>' +
+                                    '<li>故障类型：<span>' + cpn.faultTypeText + '</span></li>' +
+                                    '<li>分纤箱名称：<span>' + cpn.boxName + '</span></li></ul>'
+                                );
+                            }
+                            var img = '';
+                            if(val.resendNum){
+                                img = '<img src="src/assets/img/3.png" />';
+                                if(val.resendNum==1){
+                                    img = '<img src="src/assets/img/1.png" />';
+                                }else if(val.resendNum==2){
+                                    img = '<img src="src/assets/img/2.png" />';
+                                }
+                            }
+                            var urgeImg = '';
+                            if(item.urgeTimes){
+                                urgeImg = '<img src="src/assets/img/urge3.png" />';
+                                if(item.urgeTimes==1){
+                                    urgeImg = '<img src="src/assets/img/urge1.png" />';
+                                }else if(item.urgeTimes==2){
+                                    urgeImg = '<img src="src/assets/img/urge2.png" />';
+                                }
+                            }
+							var dupComplainMark = '';
+                            if(item.dupComplainMark==1){
+                                dupComplainMark = '<img src="src/assets/img/dupComplainMark3.png" />';
+                            }
+							var isKeyCust = '';
+                            if(item.isKeyCust==1&&(item.actType == "开通" || item.actType == "变更" || item.actType == "撤销" || item.actType == "投诉" || item.actType == "满意度修复")){
+                                isKeyCust = '<img src="src/assets/img/isKeyCust.png" />';
+							}
+							var isUpgrade = '';
+                            if(item.isUpgrade=="是"&&(item.actType == "投诉")){
+                                isUpgrade = '<img src="src/assets/img/isUpgrade.png" />';
+                            }
+							var kmpsImg = '';
+                            if(item.secondModule&&parseFloat(item.secondModule.bandwidth)>=1000){
+                                kmpsImg = '<img src="src/assets/img/kmps.png" />';
+                            }
+							var zkyhImg = '';
+                            if(item.isInferiorUser==1 && item.actType == "投诉"){
+                                zkyhImg = '<img src="src/assets/img/zkyh.png" />';
+                            }
+							var isFttr = '';
+                            if(item.isFttrComp==1 && item.actType == "投诉"){
+                                isFttr = '<img src="src/assets/img/r.png" />';
+                            }
+							var keyPer = "";
+							if(item.actType == "投诉") {
+								keyPer = '<li>关键人角色：<span>' + (item.keyPersonRole ? item.keyPersonRole : "") + '</span></li>';
+							}
+                            return (
+                                '<div class="header header1"><span>' + item.actType + '[' + val.orderId + ']' + (item.serviceType ? item.serviceType : '') + '</span>'+img + urgeImg + dupComplainMark + isKeyCust + isUpgrade + kmpsImg + zkyhImg + isFttr +'</div>' +
+                                ul_html + '<li>首次派单时间：<span>' + val.firstSendTime + '</span></li>' +
+                                '<li>最新操作时间：<span>' + (val.modifyTime ? val.modifyTime : val.createTime) + '</span></li>' +
+                                '<li>地址：<span>' + (val.desensitizeUserAddress ? val.desensitizeUserAddress : "") + '</span></li>'+
+                                '<li>所属区域：<span>' + (val.countyName ? val.countyName : "") + '</span></li>'+
+								'<li>所属小区：<span>' + (val.districtName ? val.districtName : "") + '</span></li>'+ keyPer + '</ul>'
+                            );
+                        }
+                    },
+                    {
+                        text: '用户信息',
+                        // title: 'serviceType',
+                        name: 'secondModule',
+                        width: 150,
+                        className: 'userMessage',
+                        render: function (item, val, $src) {
+							if (!val) {
+                                return (
+                                    '<div class="header header2"></div>'
+                                )
+                            }
+							var ul_html = '<ul class="order_content">';
+							if(item.isRead==1){
+								ul_html = '<ul class="order_content c-006600">';
+							};
+							var cpn = item.cpn;
+							var phoneIcon = '';
+							if(val.sensitiveRight){
+								phoneIcon = '<img class="callClass" src="src/assets/img/call.png" width="16px" height="16px" style="margin:0px 0 -3px 0;cursor:pointer;"/>';
+							}
+                            if (cpn) {
+                                return (
+                                    '<div class="header header2"></div>' +
+                                    ul_html + '<li>&nbsp;</li><li>上报人：<span>' + cpn.reportUser + '</span></li>' +
+                                    '<li>故障级别：<span>' + cpn.faultLevelText + '</span></li></ul>'
+                                )
+                            }
+                            return (
+                                '<div class="header header2"></div>' +
+                                ul_html + '<li>姓名：<span>' + (val.desensitizeCustName ? val.desensitizeCustName : '') + '</span></li>' +
+                                '<li>账户：<span>' + (val.userAcct?val.userAcct:'') + '</span></li>' +
+                                '<li draftId="' + item.draftId +'" phoneNum1="'+ (val.desensitizeContactPhone1?val.desensitizeContactPhone1:"")+'" phoneNum2="'+(val.desensitizeContactPhone2?val.desensitizeContactPhone2:"")+'" >手机：<span>' + (val.desensitizeContactPhone1 ? (val.desensitizeContactPhone1 + phoneIcon) : (val.desensitizeContactPhone2 ? (val.desensitizeContactPhone2 + phoneIcon) : '')) + '</span></li>' +
+                                '<li>速率：<span>' + (val.bandwidth ? val.bandwidth : '') + '</span></li></ul>'
+                            )
+                        }
+                    },
+                    {
+                        text: '状态',
+                        title: 'id',
+                        name: 'thridModule',
+                        width: 230,
+                        className: 'toCenter',
+                        render: function (item, val) {
+							var ul_html = '<div class="h74 order_content thridModule ">';
+							if(item.isRead==1){
+								ul_html = '<div class="h74 order_content thridModule c-006600">';
+							};
+                            var color = '#0099FF';
+                            if (item.warnClass == 2) {
+                                color = '#ffae00';
+                            } else if (item.warnClass == 3) {
+                                color = '#f65a56';
+							}
+							var bookingHtml = "";
+							if(item.appointMent){
+								bookingHtml =  '<div class="booking">预约中</div>';
+							}
+							var changeHtml = "";
+							var changeHtmlClass = "c-0099FF";
+							var firstTimeHtmlClass = "line2"; 
+							if(item.busiType!="集客"&&(item.actType == "开通" || item.actType == "变更" || (item.actType == "投诉" && item.isKeyCust==1) || item.actType == "智能组网")){
+								if(val.apptRemainderTime && val.apptRemainderTime.indexOf("-")>-1){
+									changeHtmlClass = "c-f65a56";
+								}
+								changeHtml = '<div class="line3">改约剩余时间：<span class="'+ changeHtmlClass +'">'+ (val.apptRemainderTime ? val.apptRemainderTime : '--') +'</span></div>';
+								firstTimeHtmlClass = "line3";
+							}
+							var firstTimeHtml = '';
+							if(item.isFirstSound == 0 && val.isFirstOverTime == 0){
+								firstTimeHtml = '<div class="'+firstTimeHtmlClass+'">首响剩余时间：<span class="c-0099FF">'+ (val.firstRemainderTime ? val.firstRemainderTime : '--') + '</span></div>';
+							}else if(item.isFirstSound == 0 && val.isFirstOverTime == 1){
+								firstTimeHtml = '<div class="'+firstTimeHtmlClass+'">首响剩余时间：<span class="c-f65a56">'+ (val.firstRemainderTime ? val.firstRemainderTime : '<span class="c-0099FF">--</span>') + '</span></div>';
+							}else if(item.isFirstSound == 1 && val.isFirstOverTime == 0){
+								firstTimeHtml = '<div class="'+firstTimeHtmlClass+'">首响时间：<span class="c-0099FF">'+ (item.mtnCallTime1 ? item.mtnCallTime1 : '--') +'</span></div>';
+							}else if(item.isFirstSound == 1 && val.isFirstOverTime == 1){
+								firstTimeHtml = '<div class="'+firstTimeHtmlClass+'">首响时间：<span class="c-f65a56">'+ (item.mtnCallTime1 ? item.mtnCallTime1 : '<span class="c-0099FF">--</span>') +'</span></div>';
+							}
+                            return (
+                                '<div class="header header3">定单剩余时间：<span style="color:' + color + '">' + (val.remainderTime ? val.remainderTime : "--") + '</span></div>' +
+                                '<div style="margin-top:7px;"></div>'+ ul_html + '<div class="'+firstTimeHtmlClass+'" style="text-align:center;">' +(val.orderStateCn ? val.orderStateCn : val.orderState)  +"</div>" + 
+								firstTimeHtml + changeHtml + bookingHtml + '</div>'
+							);
+                        }
+                    },
+                    {
+                        text: '操作',
+                        name: 'fourthModule',
+                        width: 230,
+                        className: 'toCenter',
+                        render: function (item, val) {
+//                      	console.log(item);
+                            var operators = '';
+                            var allOperation = '';
+                            var allOperationName = '';
+                            //需要传递到定单详情页的数据
+                            var orderUsedMessage = {
+                                draftId: item.draftId,
+                                id: item.firstModule.orderId,
+                                orderType: item.firstModule.orderType,
+                                orderState: item.thridModule.orderStateCn,
+                                cityCode:item.firstModule.cityCode,
+                                countyCode:item.firstModule.countyCode,
+                                actType:item.actType,
+                                mtnGroupId:item.mtnGroupId,
+								serviceType:item.serviceType,
+								appointMent:item.appointMent,
+								isNetOrderFttr:item.isNetOrderFttr,
+								isRegressAudit: item.isRegressAudit,
+								userAcct: item.secondModule.userAcct,
+                            }
+                            // 渲染 [定单操作]
+                            if (val.operators && val.operators.length > 0) { // 渲染定单操作，并提供[查看]操作
+                                allOperation += val.operators[0].value + ','
+                                allOperationName += val.operators[0].name + ','
+                                orderUsedMessage.operation = val.operators[0].value;
+                                orderUsedMessage.operationName = val.operators[0].name;
+                                // 第一个操作，高亮显示
+                                var showOperName = val.operators[0].value;
+                                if (showOperName == '催单' && item.urgeTimes && item.urgeTimes > 0) {
+                                	showOperName = '催单(' + item.urgeTimes + ')';
+                                }
+                                operators += '<div class="h74_2 order_content" style="padding-top:30px" appointMent="'+item.appointMent+'" >';
+                                if(showOperName == '派发'){
+                                    operators += '<div><a param=' + JSON.stringify(orderUsedMessage) + '><input id="dispatchReservationCenter" draftId=' + item.draftId + ' type="button" class="ddbtn" value="' + showOperName + '"></a></div>';
+                                }else if(showOperName == '退单' && orderUsedMessage.operationName == '集中预约预退单审核'){
+                                    operators += '<div><a param=' + JSON.stringify(orderUsedMessage) + '><input id="regressionToCenter" draftId=' + item.draftId + ' type="button" class="ddbtn" value="' + showOperName + '"></a></div>';
+                                    allOperationName = '';
+                                    allOperation = '';
+                                }
+                                else{
+                                    operators += '<div><a data-url="js/orderquery/orderoperation" param=' + JSON.stringify(orderUsedMessage) + '><input type="button" class="ddbtn" value="' + showOperName + '"></a></div>';
+                                }
+                                // 其他操作，普通显示
+                                operators += '<div class="btns" style="width: 100%;display:block">';
+                                for (var i = 1; i < val.operators.length; i++) {
+                                    orderUsedMessage.operation = val.operators[i].value
+                                    orderUsedMessage.operationName = val.operators[i].name
+                                    if(orderUsedMessage.operation == '退单' &&  orderUsedMessage.operationName=='集中预约预退单审核'){
+                                        operators += '<a id="regressionToCenter" href="javascript:void(0);" draftId=' + item.draftId + ' param=' + JSON.stringify(orderUsedMessage) + '>' + showOperName + '</a>|'
+                                        continue;
+                                    }
+                                    allOperation += val.operators[i].value + ','
+                                    allOperationName += val.operators[i].name + ','
+                                    showOperName = val.operators[i].value
+	                                if (showOperName == '催单' && item.urgeTimes && item.urgeTimes > 0) {
+	                                	showOperName = '催单(' + item.urgeTimes + ')';
+                                    }
+                                    if(showOperName == '派发'){
+                                        operators += '<a id="dispatchReservationCenter" href="javascript:void(0);" draftId=' + item.draftId + ' param=' + JSON.stringify(orderUsedMessage) + '>' + showOperName + '</a>|'
+                                    }else{
+                                        operators += '<a href="javascript:void(0);" data-url="js/orderquery/orderoperation" param=' + JSON.stringify(orderUsedMessage) + '>' + showOperName + '</a>|'
+                                    }
+                                }
+                                if (val.showSmsOper && val.showSmsOper == 1) { // 如果在途定单超时，则提供[短信]操作，以便进行客户关怀
+                                    operators += '<a href="javascript:void(0);"  class="messageOpertion" draftId=' + item.draftId + '>短信</a>|';
+                                }
+                                // 设置[查看]操作及在[查看]页面可进行的定单操作
+                                allOperation = allOperation.substr(0, allOperation.length - 1);
+                                allOperationName = allOperationName.substr(0, allOperationName.length - 1);
+                                orderUsedMessage.operation = allOperation
+                                orderUsedMessage.operationName = allOperationName
+                                operators += '<a href="javascript:void(0);" data-url="js/orderquery/orderoperation" param=' + JSON.stringify(orderUsedMessage) + '>查看</a>|';
+                                if(item.isRead==1){
+									operators += '<a href="javascript:void(0);" class="c-666666">已阅</a>';
+								}else{
+									operators += '<a href="javascript:void(0);" class="isReadOpertion" draftId=' + item.draftId + '>未阅</a>';
+								}
+								operators += '</div>';
+                                operators += '</div>';
+                            } else { // 只提供[查看]操作
+                                operators += '<div class="h74_2 order_content" style="padding-top:40px" appointMent="'+item.appointMent+'">';
+                                orderUsedMessage.operation = '';
+                                orderUsedMessage.operationName = '';
+                                operators += '<div><a href="javascript:void(0);" data-url="js/orderquery/orderoperation" param=' + JSON.stringify(orderUsedMessage) + '><input type="button" class="ddbtn" value="查看"></a></div>';
+
+									operators += '<div class="btns" style="width: 200px;">';
+									// 如果在途定单超时，则提供[短信]操作，以便进行客户关怀
+									if(val.showSmsOper && val.showSmsOper == 1) {
+										operators += '<a href="javascript:void(0);" class="messageOpertion" draftId=' + item.draftId + '>短信</a>|';
+									}
+									if(item.isRead==1){
+										operators += '<a href="javascript:void(0);" class="c-666666">已阅</a>';
+									}else{
+										operators += '<a href="javascript:void(0);" class="isReadOpertion" draftId=' + item.draftId + '>未阅</a>';
+									}
+									operators += '</div>';
+									operators += '</div>';
+								}
+								return(
+									'<div class="header header4">最终回复时间：' + val.mtnEndTime + '</div>' +
+									operators
+								);
+							}
+						}
+					]
+				},
+				page: { //分页设置
+					customPages: [10, 15, 20, 25, 30],
+					perPage: 10,
+					total: true
+				},
+				data: {
+					url: orderAPI.webOrderUrl
+				}
+			};
+			list = new List(config);
+
+			if(!searchJsonInputHidden) {
+				searchJsonInputHidden = {
+					dateType : 0,
+					startSendTime: myUtils.convertStringFromDate(new Date()),
+				}
+			}
+			//组合查询重新赋值
+			if(searchJsonInputHidden.todoState){
+				var todoState = searchJsonInputHidden.todoState;
+				var arr_val = todoState.split(",");
+				if(arr_val.indexOf("todo")>-1){
+					searchJsonInputHidden.todoState = "todo";
+					searchJsonInputHidden.isRead = todoState.split("todo,")[1];
+				}else{
+					searchJsonInputHidden.todoState = "";
+					searchJsonInputHidden.isRead = todoState;	
+				} 
+			}
+			searchJson = $.extend({}, {}, searchJsonInputHidden);
+			searchJson.startSendTime = searchJson.startSendTime ? formatDateTime(new Date(searchJson.startSendTime) , "00:00:00") : "";
+			searchJson.startFinalApptTime = searchJson.startFinalApptTime ? formatDateTime(new Date(searchJson.startFinalApptTime) , "00:00:00") : "";
+			searchJson.endSendTime = searchJson.endSendTime ? formatDateTime(new Date(searchJson.endSendTime) , "23:59:59") : "";
+			searchJson.endFinalApptTime = searchJson.endFinalApptTime ? formatDateTime(new Date(searchJson.endFinalApptTime) , "23:59:59") : "";
+            list.search(searchJson);
+			//定时十五分钟刷新页面
+			//var refresh_id = "";
+			//setInterval_refresh();
+
+
+            //集中预约退单
+            $('#orders').on('click','#regressionToCenter',function(){
+				if ($(this).parent().parent().attr('appointMent')=="预约中") {
+					myUtils.propMessage("定单预约中，不能进行此操作", true);
+					return false;
+				}
+                orderAPI.regressionToCenter($(this).attr('draftId'),list,searchJson);
+            })
+            
+            //派发预约功能
+            $('#orders').on('click','#dispatchReservationCenter',function(){
+				if ($(this).parent().parent().attr('appointMent')=="预约中") {
+					myUtils.propMessage("定单预约中，不能进行此操作", true);
+					return false;
+				}
+                orderAPI.dispatchReservationCenter($(this).attr('draftId'),list,searchJson);
+            })
+
+			//短信关怀
+			$('#orders').on('click', '.messageOpertion', function() {
+				if ($(this).parent().parent().attr('appointMent')=="预约中") {
+					myUtils.propMessage("定单预约中，不能进行此操作", true);
+					return false;
+				}
+                var data = {
+                    draftId:$(this).attr('draftId')
+                }
+				new dialog({
+					mode: 'normal',
+					width: 540,
+					height: 150,
+					title: '短信服务',
+					content: '<from id="custCareMessageFrom"></from>',
+					okValue: '确认',
+					ok: function() {
+                        var config = {
+                            el: $("#custCareMessageFrom"),
+                            //submitBtn: $(".btnSearch"),    //触发验证的按钮，可不配置
+                            dialog: true, //是否弹出验证结果对话框,默认false
+                            //msgPos: 'bottom', // 1.0.3版本新增，设置提示信息位置，默认值为top，可选right/bottom/top
+                            rules: { //配置指定name的校验规则
+                                contactPhone: "required|mobile",
+                            }
+                        }
+                        var validatorGroup = new Validator(config);
+                        if(validatorGroup.form()){
+                            data.templateId = $('#custCareMessageFrom [name="sceneName"]').val();
+                            data.contactPhone = $('#custCareMessageFrom [name="contactPhone"]').val();
+                            orderAPI.custCareSmsSceneSubmit(data)
+                        }else{
+                            myUtils.propMessage('联系电话不正确，请重填', true);
+                            return false;
+                        }
+                        
+                    },
+					cancelValue: '取消',
+					cancel: function() {}
+				});
+				$('#custCareMessageFrom').on('change', '[name="sceneName"]', function() {
+					var content = $(this).children(':selected').attr('template');
+					$('#sms_text').html(content.replace('${phone_num}','<span id="contentPhoneNum">[]</span>'));
+				
+				});
+				$('#custCareMessageFrom').on('input', '[name="contactPhone"]', function() {
+                    $('#contentPhoneNum').html('['+$(this).val()+']');
+				});
+				orderAPI.getCustCareSmsScene({
+					tpl: custCareMessageTpl,
+					el: $('#custCareMessageFrom')
+				});
+			});
+
+			//已阅未阅状态修改
+			$('#orders').on('click', '.isReadOpertion', function() {
+				var isReadObj = $(this);
+				var draftId = isReadObj.attr('draftId');
+				var text = $.trim(isReadObj.html());
+				if(text == "未阅"){
+					orderAPI.isRead(draftId , function(){
+						isReadObj.html("已阅").addClass("c-666666");
+						isReadObj.parents("tr").find(".order_content").addClass("c-006600");
+					});
+				}
+			});
+
+			//云控宝拨打手机号
+			$('#orders').on('click', '.callClass', function() {
+				var callObj = $(this).parent().parent();
+				var draftId = callObj.attr('draftId');
+				var phoneNum1 = callObj.attr('phoneNum1');
+				var phoneNum2 = callObj.attr('phoneNum2');
+				if (phoneNum1 && phoneNum2 && phoneNum1 != phoneNum2) { //俩个号码都存在，而且不相等
+					new dialog({
+						id: 'confirm',
+						mode: 'normal',
+						title: '外呼电话选择',
+						content: orderCallCouldTpl,
+						width: 650,
+						// height: 400,
+						height: 'auto',
+						skin: 'dialogSkin',
+						fixed: false,
+						quickClose: false,
+						okValue: '确定',
+						ok: function() {
+							var phoneNum = $('input[name="phoneNum"]:checked').val(); 
+							orderAPI.callCould(phoneNum, draftId);
+							return true;
+						},
+						cancelDisplay: true,
+						cancelValue: '取消',
+						cancel: function() {}
+					});
+					// 性别
+					$('input[name="phoneNum"]:first').val(phoneNum1);
+					$('input[name="phoneNum"]:first').next().html("联系方式1："+phoneNum1);
+					$('input[name="phoneNum"]:last').val(phoneNum2);
+					$('input[name="phoneNum"]:last').next().html("联系方式2："+phoneNum2)
+				} else { //只有一个号码或者俩个号码相等
+					orderAPI.callCould(phoneNum1 ? phoneNum1 : phoneNum2, draftId);
+				}
+			});
+
+			// $("#condition").bind({
+			// 	focus: function() {
+			// 		if(this.value == this.defaultValue) {
+			// 			this.value = "";
+			// 			this.style.color = "#000";
+			// 		}
+			// 	},
+			// 	blur: function() {
+			// 		if(this.value == "") {
+			// 			this.value = this.defaultValue;
+			// 			this.style.color = "#ccc";
+			// 		}
+			// 	}
+            // });
+            
+             //渲染上一次查询的条件
+             var searchDom = $('#searchOrderDom').val();
+             if(searchDom) {
+                 searchDom = JSON.parse(searchDom);
+				 //$('#order_search_form [key="todoState"]:contains("待处理定单")').click();
+                 for(var i = 0; i < searchDom.length; i++) {
+					$('#order_search_form [key="' + searchDom[i].key + '"]:contains(' + searchDom[i].text + ')').click();
+                 }
+             }
+
+			 //提取sendTime计算方法
+			 function getSendTime($obj){
+				var $obj = $obj;
+			 	var now = new Date();
+				var sendTime = now;
+				if($obj.val() == '最近一周定单' || $obj.val() == '最近一周预约') {
+					sendTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+				} else if($obj.val() == '最近一个月定单' || $obj.val() == '最近一个月预约') {
+					sendTime = new Date(now.getTime() - 31 * 24 * 60 * 60 * 1000);
+				} else if($obj.val() == '最近三个月定单' || $obj.val() == '最近三个月预约') {
+					sendTime = new Date(now.getTime() - 91 * 24 * 60 * 60 * 1000);
+				}
+				sendTime = myUtils.convertStringFromDate(sendTime);
+				return sendTime;
+			}
+
+			//判断时间起始不能大于结束
+			function compare_sta_end_time(_sta, _end, max_mouth){
+				var maxMouth = parseInt($('#maxMouth').val());
+				if(_sta && _end) {
+					var d1 = _sta.split('-');
+					var d2 = _end.split('-');
+					//计算相差月份
+					var difMouth = parseInt(d2[0] - d1[0]) * 12 + parseInt(d2[1]) - parseInt(d1[1]);
+					if(difMouth < 0) {
+						myUtils.propMessage("请重新选择日期，结束时间不能小于开始时间",true);
+						return false;
+					}
+					if(max_mouth){
+						if(difMouth > maxMouth) {
+							myUtils.propMessage("请重新选择日期，最大的时间跨度不得超过" + maxMouth + "个月",true);
+							return false;
+						} else if(difMouth == maxMouth) {
+							if(d2[2] > d1[2]) {
+								myUtils.propMessage("请重新选择日期，最大的时间跨度不得超过" + maxMouth + "个月",true);
+								return false;
+							}
+						}
+					}
+				} else {
+					myUtils.propMessage("请先选择开始时间和结束时间",true);
+					return false;
+				}
+				return true;
+			}
+
+			//定时十五分钟刷新页面
+			function setInterval_refresh(){
+				// clearInterval(refresh_id);
+				// refresh_id = setInterval(function(){
+				// 	//条件筛选的查询
+				// 	var selected = $('[name=todoState]');
+				// 	var oldValue = selected.val();
+				// 	if(oldValue == "todo,0,"){
+				// 		$('#ok').click();
+				// 	}
+				// },1000*60*15);
+			} 
+
+			/**
+			 * 格式化时间
+			 */
+			function formatDateTime(date, format) {  
+                var y = date.getFullYear();  
+                var m = date.getMonth() + 1;  
+                m = m < 10 ? ('0' + m) : m;  
+                var d = date.getDate();  
+                d = d < 10 ? ('0' + d) : d;   
+                return y + '-' + m + '-' + d+' '+ format;  
+            };  
+
+			$("#order_search_form").bind("keydown",function(e){
+			　　// 兼容FF和IE和Opera
+			　　var theEvent = e || window.event;
+			　　var code = theEvent.keyCode || theEvent.which || theEvent.charCode;
+			　　if (code == 13) {
+					//回车执行查询
+					$('.soso-btn').click();
+					return false;
+				}
+			});
+		}
+	});

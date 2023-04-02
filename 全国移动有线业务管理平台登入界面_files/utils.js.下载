@@ -1,0 +1,830 @@
+define([
+    'dialog',
+    './ajax',
+    'Util',
+    'upload',
+    'loading',
+    'assets/common/cookie',
+    'text!tpl/order/regionSelect.tpl',
+    './constans',
+    './encrypt',
+],
+    function (Dialog, ajax, Util, Upload, Loading, cookie, regionSelectTpl, constans, Encrypt) {
+        var url = constans.server;
+
+		jQuery.prototype.serializeObject=function(){  
+		    var obj=new Object();  
+		    $.each(this.serializeArray(),function(index,param){  
+		        if(!(param.name in obj)){  
+		            obj[param.name]=param.value;  
+		        }  
+		    });  
+		    return obj;  
+		};
+        // 展示公告信息查询
+        var getSysNotices = function() {
+			ajax.ajaxJson(url + "/affiche/show", 'get', function(res) {
+				if(res && res.returnCode == 0) {
+					if(res.beans && res.beans.length) {
+                        $('#notice-tips').html(Util.hdb.compile('{{#each beans}}<div class="t-alerm-tip">{{this}}</div>{{/each}}')(res));
+                    }
+				}
+			});
+		};
+
+		/**
+		 * 弹出消息确认框
+		 * @param {Object} message
+		 */
+        var propMessage = function (message) {
+            dialog = new Dialog({
+                mode: 'confirm',
+                cancelDisplay: false,
+                content: message ? message : "修改保存成功",
+            });
+        };
+        
+		/**
+		 * 弹出消息确认框
+		 * @param {Object} message
+		 */
+        var okMessage = function (message, okFun) {
+            dialog = new Dialog({
+                mode: 'confirm',
+                cancelDisplay: false,
+                content: message ? message : "修改保存成功",
+                ok: function() {
+                    okFun && okFun();
+                },
+                okValue: '确定',
+            });
+        };
+    
+        /**
+		 * 弹出消息确认框，带确定和取消按钮以及回调方法
+		 * @param {Object} message
+		 */
+        var okCancelMessage = function (message, height, okText, cancelText, okFun, cancelFun) {
+            dialog = new Dialog({
+                mode: 'confirm',
+                height: height ? height : 150,
+                cancelDisplay: true,
+                content: message,
+                okValue: okText ? okText : '确定',
+                ok:function(){
+                    okFun && okFun();
+                },   
+                cancelValue: cancelText ? cancelText : '取消', 
+                cancel: function(){
+                    cancelFun && cancelFun();
+                } 
+            });
+        };
+
+        /**
+		 * 弹出消息提示框
+		 * @param {Object} message  消息内容
+         * @param {String} tipsType  tips类型 success | error
+		 * @param {Object} delayRmove 延迟n秒后消失，默认为1.5秒
+		 */
+        var showTips = function (message, tipsType, delayRmove) {
+            dialog = new Dialog({
+                mode: 'tips',
+                content: message,
+                tipsType: tipsType || '',
+                delayRmove: delayRmove||1.5
+            });
+        };
+
+        /**
+         * 跳转到一个新的页面
+         * @param {Object} url 目标页面
+         */
+        var redirect = function(url, params) {
+		 	var a = document.createElement('a');
+		 	a.setAttribute('data-url', url);
+		 	a.setAttribute('param', JSON.stringify(params));
+		 	var body = document.getElementsByTagName('body')[0];
+		 	body.appendChild(a);
+		 	a.click();
+		};
+		/**
+		 * 将一个数组添加到另一个数组的前面,并且修改前一个数组
+		 * @param {Object} targetArr 目标数组
+		 * @param {Object} addArr 将要添加的数组
+		 */
+		var unshiftArr = function(targetArr, addArr) {
+			Array.prototype.unshift.apply(targetArr, addArr);
+		};
+        //时间转换
+        Date.prototype.pattern = function (fmt) {
+            var o = {
+                "M+": this.getMonth() + 1, //月份         
+                "d+": this.getDate(), //日         
+                "h+": this.getHours() % 12 == 0 ? 12 : this.getHours() % 12, //小时         
+                "H+": this.getHours(), //小时         
+                "m+": this.getMinutes(), //分         
+                "s+": this.getSeconds(), //秒         
+                "q+": Math.floor((this.getMonth() + 3) / 3), //季度         
+                "S": this.getMilliseconds() //毫秒         
+            };
+            var week = {
+                "0": "/u65e5",
+                "1": "/u4e00",
+                "2": "/u4e8c",
+                "3": "/u4e09",
+                "4": "/u56db",
+                "5": "/u4e94",
+                "6": "/u516d"
+            };
+            if (/(y+)/.test(fmt)) {
+                fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+            }
+            if (/(E+)/.test(fmt)) {
+                fmt = fmt.replace(RegExp.$1, ((RegExp.$1.length > 1) ? (RegExp.$1.length > 2 ? "/u661f/u671f" : "/u5468") : "") + week[this.getDay() + ""]);
+            }
+            for (var k in o) {
+                if (new RegExp("(" + k + ")").test(fmt)) {
+                    fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+                }
+            }
+            return fmt;
+        };
+
+        var convertStringFromDate = function (date) {
+            if (date) {
+                var y = date.getFullYear();
+                var m = date.getMonth() + 1;
+                m = m < 10 ? ('0' + m) : m;
+                var d = date.getDate();
+                d = d < 10 ? ('0' + d) : d;
+                return y + '-' + m + '-' + d;
+            }
+        };
+
+        //将groupSearchForm取到的数据中的selected数据进行转化
+        var changeSelectedData = function (formDom, data) {
+            var $select = $(formDom + ' form select');
+            $select.each(function () {
+                var $this = $(this);
+                data[$this.attr('name')] = $this.val() == 'null' ? '' : $this.val();
+            })
+            return data;
+        };
+
+        //获取省下的市，并放入下拉选
+        var region;
+        var citys;
+        var getCity = function (option, config) {
+            if (config) {
+                $('#refresh').val('true');
+                ajax.ajaxJson(url + '/webUsers/domain/inst', 'get', function (data) {
+                    var el = config.el;
+                    if (typeof el == 'string') {
+                        el = $(el);
+                    }
+                    if (data && config) {
+                        region = {
+                            name: config.name,
+                            citys: data.beans,
+                            select: config.select,
+                            topValue: config.topValue
+                        }
+                        el.html(Util.hdb.compile(regionSelectTpl)({
+                            region: region
+                        }));
+                    }
+                    // citys = JSON.stringify(data.beans);
+                    citys = data.beans;
+                    if (config && config.defaultLinkedValue) {
+                        el.children('select').val(config.defaultLinkedValue).trigger('change');
+                    }
+                    // cookie.set('citys', JSON.stringify(data.beans));
+                });
+                return citys ? citys : true;
+            }
+            return citys;
+        };
+        //获取市下面的区县，并放入下拉选(必须先调用了获取省下的市，二级联动用)
+        var getCounty = function (option, config) {
+            if (region && region.citys && region.citys.length > 0) {
+                config.el.html(Util.hdb.compile(regionSelectTpl)({
+                    region: {
+                        counties: region.citys[option].counties,
+                        name: config.name,
+                        select: config.select,
+                        topValue: config.topValue
+                    }
+                }));
+                if (config && config.defaultLinkedValue) {
+                    config.el.children('select').val(config.defaultLinkedValue).trigger('change');
+                }
+            }
+        };
+
+         //获取区县下的网格，并放入下拉选(三级联动用)
+         var getMtnGrids = function (option, config) {
+            var urlAjax = url + '/mtnGrids';
+            ajax.ajaxJson(urlAjax, 'get', option, function (data) {
+                if (data.returnCode == 0) {
+                    var beans = data.beans;
+                    if (beans && beans.length > 0) {
+                        if (config.el) { //若为自定义dom的渲染
+                            config.el.html(Util.hdb.compile(regionSelectTpl)({
+                                region: {
+                                    name: 'gridId',
+                                    grids: data.beans,
+                                    select: config.select,
+                                    topValue: config.topValue
+                                }
+                            }));
+                            if (config.defaultLinkedValue) {
+                                config.el.children('select').val(config.defaultLinkedValue).trigger('change');;
+                            }
+                        } else if (config.selectComponent) { //若为组件的渲染
+                            var selectComponent = config.selectComponent;
+                            beans = changeSelectedKey(beans, 'gridName', 'gridId', 'mtnGroupIds');
+                            beans.unshift({
+                                name: '全部',
+                                value: 'null'
+                            });
+                            selectComponent.reload(beans);
+                            selectComponent.setValue(beans ? beans[0].value : '');
+                        }
+                    } else {
+                        if (config.el) { //若为自定义dom的渲染
+                            config.el.html(Util.hdb.compile(regionSelectTpl)({
+                                region: {
+                                    name: '',
+                                    grids: [{
+                                        gridName: '无网格信息'
+                                    }],
+                                    select: config.select,
+                                    topValue: config.topValue
+                                }
+                            }));
+                        } else if (config.selectComponent) { //若为组件的渲染
+                            var selectComponent = config.selectComponent;
+                            selectComponent.reload([{
+                                name: '无网格信息',
+                                value: 'null'
+                            }]);
+                            selectComponent.setValue('null');
+                        }
+                    }
+                } else {
+                    var falseTips = {
+                        mode: 'tips',
+                        delayRmove: 1.5,
+                        tipsType: 'error',
+                        maxWidth: '226px',
+                        content: data.returnMessage
+                    };
+                    new Dialog(falseTips);
+                }
+            });
+        };
+        //获取区县下的班组或调度时可指派的班组，并放入下拉选(三级联动用)
+        var getMtnGroups = function (option, config, param, mtnGroupId) {
+            var param = param ? param : {};
+            var urlAjax = url + '/mtnGroups'
+            if (param.isSchedule == true) { //若为调度或者转派则查询调度时可指派的班组接口
+                urlAjax = url + '/webOrders/schedule/group'
+            }
+            ajax.ajaxJson(urlAjax, 'get', option, function (data) {
+                if (data.returnCode == 0) {
+                    if (param.isSchedule == true){ //调度或者转派
+                        var beans = data.bean&&data.bean.skdMtnGroups;
+                        if (data.bean&&data.bean.grabMonadSwitch) {//如果抢单开关是关闭状态，隐藏装维人员选项
+                            $("#schedul #mtnUsersSpan").show();
+                            $("#schedul #grabMonadSwitch").val("1");
+                        }else{
+                            $("#schedul #mtnUsersSpan").hide();
+                            $("#schedul #grabMonadSwitch").val("");
+                        }
+                    }else{
+                        var beans = data.beans;
+                    }
+                    if (beans && beans.length > 0) {
+                        if (config.el) { //若为自定义dom的渲染
+                            if(mtnGroupId){
+                                for(var i=0;i<beans.length;i++){
+                                    if(mtnGroupId==beans[i].groupId){
+                                        beans.splice(i, 1);
+                                    }
+                                }
+                            }
+                            config.el.html(Util.hdb.compile(regionSelectTpl)({
+                                region: {
+                                    name: 'mtnGroupId',
+                                    groups: beans,
+                                    select: config.select,
+                                    topValue: config.topValue
+                                }
+                            }));
+                            if (config.defaultLinkedValue) {
+                                config.el.children('select').val(config.defaultLinkedValue);
+                            }
+                        } else if (config.selectComponent) { //若为组件的渲染
+                            var selectComponent = config.selectComponent;
+                            beans = changeSelectedKey(beans, 'groupName', 'groupId', 'mtnUserIds')
+                            beans.unshift({
+                                name: '全部',
+                                value: 'null'
+                            });
+                            selectComponent.reload(beans);
+                            if(mtnGroupId){
+                                selectComponent.setValue(['value', mtnGroupId]);
+                            } else {
+                                selectComponent.setValue(beans ? beans[0].value : '');
+                            }
+                        }
+                    } else {
+                        if (config.el) { //若为自定义dom的渲染
+                            config.el.html(Util.hdb.compile(regionSelectTpl)({
+                                region: {
+                                    name: '',
+                                    groups: [{
+                                        groupName: '无班组信息'
+                                    }],
+                                    select: config.select,
+                                    topValue: config.topValue
+                                }
+                            }));
+                        } else if (config.selectComponent) { //若为组件的渲染
+                            var selectComponent = config.selectComponent;
+                            selectComponent.reload([{
+                                name: '无班组信息',
+                                value: 'null'
+                            }]);
+                            selectComponent.setValue('null');
+                        }
+                    }
+                } else {
+                    var falseTips = {
+                        mode: 'tips',
+                        delayRmove: 1.5,
+                        tipsType: 'error',
+                        maxWidth: '226px',
+                        content: data.returnMessage
+                    };
+                    new Dialog(falseTips);
+                }
+            });
+        };
+
+        //获取班组下的装维人员
+        var getMtnUsers = function (option, config, callback) {
+            var urlAjax = url + '/webOrders/schedule/users/'+ option.draftId+ '/'+ option.groupId;
+            ajax.ajaxJson(urlAjax, 'get', {} , function (data) {
+                if (data.returnCode == 0) {
+                    var beans = data.beans;
+                    if (beans && beans.length > 0) {
+                        if (config.el) { //若为自定义dom的渲染
+                            config.el.html(Util.hdb.compile(regionSelectTpl)({
+                                region: {
+                                    name: config.name,
+                                    users: beans,
+                                    select: config.select,
+                                    topValue: config.topValue
+                                }
+                            }));
+                            if (config.defaultLinkedValue) {
+                                config.el.children('select').val(config.defaultLinkedValue);
+                            }
+                        } 
+                    } else {
+                        if (config.el) { //若为自定义dom的渲染
+                            config.el.html(Util.hdb.compile(regionSelectTpl)({
+                                region: {
+                                    name: '',
+                                    users: [{
+                                        userName: '无装维人员信息'
+                                    }],
+                                    select: config.select,
+                                    topValue: config.topValue
+                                }
+                            }));
+                        } 
+                    }
+                } else {
+                    var falseTips = {
+                        mode: 'tips',
+                        delayRmove: 1.5,
+                        tipsType: 'error',
+                        maxWidth: '226px',
+                        content: data.returnMessage
+                    };
+                    new Dialog(falseTips);
+                }
+                callback && callback(data);
+            });
+        };
+
+        //根据班组id，获取班组下的装维人员，区别于上面的调度接口
+        var getMtnUsersByGroup = function (option, config, callback) {
+            var urlAjax = url + '/mtnUsers';
+            ajax.ajaxJson(urlAjax, 'get', {
+                limit: option.limit,
+                cityCode: option.cityCode,
+                countyCode: option.countyCode,
+                groupId: option.groupId,
+                mtnGroupName: option.mtnGroupName,
+            }, function (data) {
+                if (data.returnCode == 0) {
+                    var beans = data.beans;
+                    if (beans && beans.length > 0) {
+                        if (config.el) { //若为自定义dom的渲染
+                            config.el.html(Util.hdb.compile(regionSelectTpl)({
+                                region: {
+                                    name: config.name,
+                                    users: beans,
+                                    select: config.select,
+                                    topValue: config.topValue
+                                }
+                            }));
+                            if (config.defaultLinkedValue) {
+                                config.el.children('select').val(config.defaultLinkedValue);
+                            }
+                        }else if (config.selectComponent) { //若为组件的渲染
+                            var selectComponent = config.selectComponent;
+                            beans = changeSelectedKey(beans, 'userName', 'userId', 'mtnGroupIds')
+                            beans.unshift({
+                                name: '全部',
+                                value: 'null'
+                            });
+                            selectComponent.reload(beans);
+                            selectComponent.setValue(beans ? beans[0].value : '');
+                        }  
+                    } else {
+                        if (config.el) { //若为自定义dom的渲染
+                            config.el.html(Util.hdb.compile(regionSelectTpl)({
+                                region: {
+                                    name: '',
+                                    users: [{
+                                        userName: '无装维人员信息'
+                                    }],
+                                    select: config.select,
+                                    topValue: config.topValue
+                                }
+                            }));
+                        } else if (config.selectComponent) { //若为组件的渲染
+                            var selectComponent = config.selectComponent;
+                            selectComponent.reload([{
+                                name: '无装维人员信息',
+                                value: 'null'
+                            }]);
+                            selectComponent.setValue('null');
+                        } 
+                    }
+                } else {
+                    var falseTips = {
+                        mode: 'tips',
+                        delayRmove: 1.5,
+                        tipsType: 'error',
+                        maxWidth: '226px',
+                        content: data.returnMessage
+                    };
+                    new Dialog(falseTips);
+                }
+                callback && callback(data);
+            });
+        };
+
+        //处理人厂商信息
+        var enumDatas;
+        var getEnumDatas = function(config){
+            if(config){
+                ajax.ajaxJson(url+"/enumDatas",'get',{enumType:'MTN_COMPANY'},function(data){
+                    enumDatas =  changeSelectedKey(data.beans,'enumKey','enumVal');
+                })
+            }else{
+                return enumDatas;
+            }
+        };
+
+        //替换下拉选的key值
+        var changeSelectedKey = function (arr, key, val, param) {
+            if (!arr) {
+                return []
+            }
+            var newArr = []
+            for (var i = 0; i < arr.length; i++) {
+                var temp = {
+                    name: arr[i][key],
+                    value: arr[i][val],
+                    param: arr[i][param]
+                }
+                if (arr[i].children) {
+                    temp.children = changeSelectedKey(arr[i].children, key, val, param);
+                }
+                newArr.push(temp);
+            }
+            return newArr;
+        };
+
+        //一维数组转换成二维数组，数据转换
+        var changeSelectedChilden= function (arr, key, val, questionType) {
+            if (!arr) {
+                return []
+            }
+            var newArr = [];
+            while (arr.length > 0) {
+                var obj = arr[0];
+                var pathShort = obj[key].split("->")[0];
+                var newObj = {"children":[], "label" : pathShort};
+                for (var i = arr.length-1; i >= 0; i--) {
+                    var title = arr[i][key].split("->")[0];
+                    var label = arr[i][key].split("->")[1];
+                    if(title == pathShort){
+                        newObj.children.unshift({"value": arr[i][val], "name": label, "param": arr[i][questionType]});
+                        arr.splice(i, 1);
+                    }
+                }
+                newArr.push(newObj);
+            }
+            return newArr;
+        }
+
+        //loading弹出层
+        var getLoading = function ($el, width, content, className) {
+            var loadingConfig = {
+                el: $el, //组件要绑定的容器，默认为body（此项可不配置或留空）
+                className: className ? className : 'loading', //组件外围的className
+                position: 'center', //提示信息位置，顶部top|默认center中央
+                width: width?width:'300', //loading的宽度,非必须，默认300
+                height: 'auto', //loading的高度,非必须，默认auto 
+                mask: 1, //是否显示遮罩， 0不显示|默认1显示
+                animate: 1, //是否显示动画效果， 0不显示|默认1显示
+                mode: 'layer', //展示方式 loadingLine线条方式|默认layer弹层方式
+                text: content?content:'加载中...', //提示文字，默认 加载中...
+                icon: 'dotCycle', //文字前面的gif动画， 默认dotCycle有点组成的圈|cmcc移动图标|cmccLarge大的移动图标
+                // content: '<div>加载中...</div>' //自定义显示信息,默认样式为text和icon的默认样式
+            }
+            return new Loading(loadingConfig);
+        };
+
+        dataLeftCompleting = function (bits, identifier, value) {
+            value = Array(bits + 1).join(identifier) + value;
+            return value.slice(-bits);
+        };
+		/**
+		 * 数据加密算法
+		 * @param data 需加密的数据
+		 * @param key 秘钥
+		 */
+        var encryptAlg = function (data, key) {
+            return Encrypt.encryptAlg(data, key);
+        };
+		/**
+		 * 数据解密算法
+		 * @param data 需解密的数据
+		 * @param key 秘钥
+		 */
+        var dencrypt = function (data, key) {
+            return Encrypt.dencrypt(data, key);
+        };
+
+        //合并俩个数组，并将其中一个数组元素排序到最后
+        var mergeArr = function (arr1, arr2, matchName) {
+            if (arr1.length == 0) {
+                return arr2;
+            } else if (arr2.length == 0) {
+                return arr1;
+            } else {
+                // var arr = arr1.concat();
+                for (var i = 0; i < arr1.length; i++) {
+                    for (var j = 0; j < arr2.length; j++) {
+                        if (matchName) {
+                            if (arr1[i][matchName] == arr2[j][matchName]) {
+                                arr1.splice(i, 1);
+                                i--;
+                                break;
+                            }
+                        }
+                    }
+                }
+                return arr1.concat(arr2);
+            }
+        }
+
+        //去除数组中的某个元素，并返回修改后的数组
+        var deleteArr = function (arr1, matchName, content) {
+            for (var i = 0; i < arr1.length; i++) {
+                if (matchName) {
+                    if (arr1[i][matchName] == content) {
+                        arr1.splice(i, 1);
+                        i--;
+                        break;
+                    }
+                }
+            }
+            return arr1;
+        }
+
+        /**
+         * @param  array  arr1
+         * @param  array  arr2
+         * @return array  diffArr   返回两个数组对比之后  arr1比arr2多出的值
+         */
+        function diffArrFunc(arr1,arr2){
+            var oneArr=arr1;
+            var twoArr=arr2;
+            var diffArr = [];
+            for(var i=0;i<oneArr.length;i++) {
+                var flag=true;
+                for(var j=0;j<twoArr.length;j++){
+                    if(twoArr[j]==oneArr[i]) {
+                        flag=false;
+                        break;
+                    }
+                }
+                //找不到这个值就把它添加到差异数组中
+                if(flag){
+                    diffArr.push(oneArr[i]);
+                }
+            }
+            //将差异数组转换成字符串
+            return diffArr;
+        }
+ 
+        /**
+		 * 计算字符串长度
+		 * @param data 需解密的数据
+		 * @param key 秘钥
+		 */
+        var getByteLen = function(val) {
+            var len = 0;
+            for (var i = 0; i < val.length; i++) {
+                var a = val.charAt(i);
+                if (a.match(/[^\x00-\xff]/ig) != null) {
+                    len += 2;
+                }else{
+                    len += 1;
+                }
+            }
+            return len;
+        }
+
+        
+        /**
+		 * 判断时间差
+		 * @param _sta 开始时间
+		 * @param _end 结束时间
+         * @param max_mouth 允许最大时间差
+		 */
+        function compare_sta_end_time(_sta, _end, max_mouth){
+            var maxMouth = max_mouth;
+            if(_sta && _end) {
+                var d1 = _sta.split('-');
+                var d2 = _end.split('-');
+                //计算相差月份
+                var difMouth = parseInt(d2[0] - d1[0]) * 12 + parseInt(d2[1]) - parseInt(d1[1]);
+                if(difMouth < 0) {
+                    this.propMessage("请重新选择日期，结束时间不能小于开始时间", true);
+                    return false;
+                }
+                if(max_mouth){
+                    if(difMouth > maxMouth) {
+                        this.propMessage("请重新选择日期，最大的时间跨度不得超过" + maxMouth + "个月",true);
+                        return false;
+                    } else if(difMouth == maxMouth) {
+                        if(d2[2] > d1[2]) {
+                            this.propMessage("请重新选择日期，最大的时间跨度不得超过" + maxMouth + "个月",true);
+                            return false;
+                        }
+                    }
+                }
+            } else {
+                this.propMessage("请先选择开始时间和结束时间",true);
+                return false;
+            }
+        }
+
+        /**
+         * 字符串是否含有html标签的检测
+         * @param htmlStr
+         */
+        function checkHtml(htmlStr) {
+            var  reg = /<[^>]+>/g;
+            return reg.test(htmlStr);
+        }
+
+        /**
+         * 匹配ip地址
+         * @param htmlStr
+         */
+        function isValidIP(ip) {
+            var reg = /^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$/
+            return reg.test(ip);
+        } 
+
+        /**
+         * 提交请求
+         */
+        var submitAjax = function(_sendUrl, _sendData, _type , callback , message){
+            var type = _type ? _type : "put";
+            loadingMtnDistricts = getLoading( $("html"), "300", "加载中...", "loadingInfo");
+            ajax.ajaxJson(_sendUrl, type, _sendData, function (data) {
+                loadingMtnDistricts.destroy();
+                if (data.returnCode == 0) {
+                    if (!data.bean) {
+                        propMessage("操作失败", true);
+                        return;
+                    }
+                    if(!message){
+                        propMessage("操作成功",true);
+                    }
+                    callback && callback(data);
+                } else {
+                    if (data.returnCode != 'RM0002') {
+                         propMessage(data.returnMessage, true);
+                    }
+                    callback && callback(data);
+                }
+            });
+        }
+
+        /**
+		 * 附件上传功能, 自定义样式
+		 * @param {*} elId 
+         * @param {*} url 
+		 */
+		var imgUploadLoading = "";
+		var imgUpload = function (elId, url) {
+			var uploadConfig = {
+				el: "#attFile"+elId, 	    //组件绑定的容器
+				className: 'upload', 	    //组件外围的className
+				url: url ,                  //组件上传的后台接口
+				paramName: 'file' 		    //往后台发送表单数据时，name字段的名字
+			}
+			var filesUpload = new Upload(uploadConfig);
+			$("#attFile"+elId).find(':input').attr('name', 'file');
+
+            $('#deleteFile'+elId).on('click', function () {
+                $('#myFile'+elId).html('<span style="color:red">已删除文件</span>,点击确认提交')
+                $('#attachName'+elId).val('');
+                $('#attachUrl'+elId).val('');
+            })
+
+            filesUpload.on('add', function (e, data) {
+                loadingMtnDistricts = getLoading($('.wrap'), '790', '上传文件中...');
+                $('#attFile'+elId).find('[name=file]').attr('disabled', true);
+            })
+            filesUpload.on('done', function (e, data) {
+                var attachUrl = data.result.bean;
+                var attachName = $('#attFile'+elId).find('.upload-filename a').html();
+                $('#attachUrl'+elId).val(attachUrl);
+                $('#attachName'+elId).val(attachName);
+                $('#myFile'+elId).html('已选择文件<span style="color:red">' + attachName + '</span>');
+                $('#attFile'+elId).find('[name=file]').attr('disabled', true);
+                loadingMtnDistricts.destroy();
+            })
+            filesUpload.on('remove', function (e, data) {
+                $('#myFile'+elId).html('<span style="color:red">已删除文件</span>,点击确认提交')
+                $('#attachName'+elId).val('');
+                $('#attachUrl'+elId).val('');
+                $('#attFile'+elId).find('[name=file]').attr('disabled', false);
+                loadingMtnDistricts.destroy();
+            })
+            filesUpload.on('fail', function (e, data) {
+                myUtils.propMessage("文件上传失败，请先删除再重新上传", true);
+                $('#showFile'+elId).html('文件上传失败，<span style="color:red">请先删除再重新上传</span>')
+                loadingMtnDistricts.destroy();
+            })
+		};
+
+        return {
+            propMessage: propMessage,
+            okMessage: okMessage,
+            okCancelMessage: okCancelMessage,
+            showTips: showTips,
+            redirect: redirect,
+            unshiftArr: unshiftArr,
+            convertStringFromDate: convertStringFromDate,
+            changeSelectedData: changeSelectedData,
+            getCity: getCity,
+            getCounty: getCounty,
+            getMtnGroups: getMtnGroups,
+            getMtnGrids: getMtnGrids,
+            getMtnUsers: getMtnUsers,
+            getMtnUsersByGroup: getMtnUsersByGroup,
+            getEnumDatas: getEnumDatas,
+            region: region,
+            changeSelectedKey: changeSelectedKey,
+            changeSelectedChilden: changeSelectedChilden,
+            getLoading: getLoading,
+            encryptAlg: encryptAlg,
+            dencrypt: dencrypt,
+            mergeArr: mergeArr,
+            deleteArr: deleteArr,
+            diffArrFunc: diffArrFunc,
+            getByteLen: getByteLen,
+            compare_sta_end_time: compare_sta_end_time,
+            checkHtml : checkHtml,
+            isValidIP : isValidIP,
+            submitAjax: submitAjax,
+            imgUpload : imgUpload,
+            getSysNotices: getSysNotices
+        };
+    });
